@@ -16,8 +16,8 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => {
   // Check local storage on initialization
-  const savedToken = localStorage.getItem('titan_token');
-  const savedUserJson = localStorage.getItem('titan_user');
+  const savedToken = localStorage.getItem('repolens_token');
+  const savedUserJson = localStorage.getItem('repolens_user');
   let savedUser: UserInfo | null = null;
   if (savedUserJson) {
     try {
@@ -32,13 +32,13 @@ export const useAuthStore = create<AuthState>((set) => {
     user: savedUser,
     isAuthenticated: !!savedToken,
     login: (token, user) => {
-      localStorage.setItem('titan_token', token);
-      localStorage.setItem('titan_user', JSON.stringify(user));
+      localStorage.setItem('repolens_token', token);
+      localStorage.setItem('repolens_user', JSON.stringify(user));
       set({ token, user, isAuthenticated: true });
     },
     logout: () => {
-      localStorage.removeItem('titan_token');
-      localStorage.removeItem('titan_user');
+      localStorage.removeItem('repolens_token');
+      localStorage.removeItem('repolens_user');
       set({ token: null, user: null, isAuthenticated: false });
     }
   };

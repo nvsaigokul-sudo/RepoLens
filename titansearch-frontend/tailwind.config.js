@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        titan: {
+        repolens: {
           dark: '#0B0F19',
           card: '#151D30',
           border: '#23304E',

@@ -56,18 +56,18 @@ export const SearchPage: React.FC = () => {
           <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-emerald-400">
             RepoLens
           </h1>
-          <p className="text-xs text-titan-muted mt-1">AI-Powered Repository Intelligence Platform</p>
+          <p className="text-xs text-repolens-muted mt-1">AI-Powered Repository Intelligence Platform</p>
         </div>
         
         {user ? (
-          <div className="flex items-center space-x-4 bg-titan-card border border-titan-border px-4 py-2 rounded-lg">
+          <div className="flex items-center space-x-4 bg-repolens-card border border-repolens-border px-4 py-2 rounded-lg">
             <div className="text-right">
-              <p className="text-xs font-semibold text-titan-text">{user.email}</p>
-              <p className="text-[10px] text-titan-muted uppercase font-bold tracking-wider">{user.role}</p>
+              <p className="text-xs font-semibold text-repolens-text">{user.email}</p>
+              <p className="text-[10px] text-repolens-muted uppercase font-bold tracking-wider">{user.role}</p>
             </div>
             <button 
               onClick={() => { logout(); navigate('/login'); }} 
-              className="p-1.5 hover:text-red-400 text-titan-muted transition-colors"
+              className="p-1.5 hover:text-red-400 text-repolens-muted transition-colors"
               title="Logout"
             >
               <LogOut size={16} />
@@ -76,7 +76,7 @@ export const SearchPage: React.FC = () => {
         ) : (
           <button 
             onClick={() => navigate('/login')} 
-            className="text-xs font-bold text-titan-primary bg-titan-card hover:bg-titan-border border border-titan-border px-4 py-2 rounded-lg transition-colors"
+            className="text-xs font-bold text-repolens-primary bg-repolens-card hover:bg-repolens-border border border-repolens-border px-4 py-2 rounded-lg transition-colors"
           >
             Login / Register
           </button>
@@ -85,10 +85,10 @@ export const SearchPage: React.FC = () => {
 
       {/* Hero Title */}
       <div className="text-center mb-12">
-        <h2 className="text-4xl font-extrabold tracking-tight text-titan-text mb-4">
+        <h2 className="text-4xl font-extrabold tracking-tight text-repolens-text mb-4">
           Discover. Analyze. Evaluate.
         </h2>
-        <p className="text-sm text-titan-muted max-w-lg mx-auto">
+        <p className="text-sm text-repolens-muted max-w-lg mx-auto">
           RepoLens goes beyond traditional search by deep-crawling file trees to scan signatures, compute health scores, map architectures, and write Gemini summaries.
         </p>
       </div>
@@ -101,13 +101,13 @@ export const SearchPage: React.FC = () => {
             placeholder="Search GitHub repositories (e.g. spring-projects/spring-boot)..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-titan-card border border-titan-border focus:border-titan-primary rounded-xl py-4 pl-12 pr-4 text-sm text-titan-text placeholder-[#475569] outline-none shadow-xl transition-all"
+            className="w-full bg-repolens-card border border-repolens-border focus:border-repolens-primary rounded-xl py-4 pl-12 pr-4 text-sm text-repolens-text placeholder-[#475569] outline-none shadow-xl transition-all"
           />
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-titan-muted" size={20} />
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-repolens-muted" size={20} />
           <button
             type="submit"
             disabled={loading}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-titan-primary hover:bg-blue-600 text-titan-text px-4 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-repolens-primary hover:bg-blue-600 text-repolens-text px-4 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
           >
             {loading ? 'Searching...' : 'Explore'}
           </button>
@@ -128,28 +128,28 @@ export const SearchPage: React.FC = () => {
           <div
             key={repo.id}
             onClick={() => navigate(`/repository/${repo.fullName}`)}
-            className="bg-titan-card border border-titan-border hover:border-titan-primary/50 p-6 rounded-xl cursor-pointer transition-all shadow-md group"
+            className="bg-repolens-card border border-repolens-border hover:border-repolens-primary/50 p-6 rounded-xl cursor-pointer transition-all shadow-md group"
           >
             <div className="flex justify-between items-start mb-2">
-              <h3 className="font-bold text-titan-text group-hover:text-titan-primary transition-colors">
+              <h3 className="font-bold text-repolens-text group-hover:text-repolens-primary transition-colors">
                 {repo.fullName}
               </h3>
               {repo.primaryLanguage && (
-                <span className="text-[10px] bg-titan-border text-titan-muted px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                <span className="text-[10px] bg-repolens-border text-repolens-muted px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                   {repo.primaryLanguage}
                 </span>
               )}
             </div>
-            <p className="text-xs text-titan-muted mb-4 line-clamp-2">
+            <p className="text-xs text-repolens-muted mb-4 line-clamp-2">
               {repo.description || 'No description provided by the repository.'}
             </p>
-            <div className="flex items-center space-x-6 text-xs text-titan-muted font-medium">
+            <div className="flex items-center space-x-6 text-xs text-repolens-muted font-medium">
               <div className="flex items-center space-x-1">
                 <Star size={14} className="text-amber-500" />
                 <span>{repo.stars} stars</span>
               </div>
               <div className="flex items-center space-x-1">
-                <GitFork size={14} className="text-titan-primary" />
+                <GitFork size={14} className="text-repolens-primary" />
                 <span>{repo.forks} forks</span>
               </div>
             </div>
@@ -157,7 +157,7 @@ export const SearchPage: React.FC = () => {
         ))}
 
         {!loading && repos.length === 0 && query && (
-          <div className="text-center py-12 text-titan-muted text-sm font-medium">
+          <div className="text-center py-12 text-repolens-muted text-sm font-medium">
             No matching repositories synced. Press Explore to trigger database indexing.
           </div>
         )}

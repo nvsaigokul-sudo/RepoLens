@@ -37,10 +37,10 @@ export const RegisterPage: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto mt-24 px-4">
-      <div className="bg-titan-card border border-titan-border p-8 rounded-2xl shadow-xl">
+      <div className="bg-repolens-card border border-repolens-border p-8 rounded-2xl shadow-xl">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-titan-text">Create Account</h2>
-          <p className="text-xs text-titan-muted mt-1">Unlock AI summaries, career scoring, and recommendations</p>
+          <h2 className="text-2xl font-bold text-repolens-text">Create Account</h2>
+          <p className="text-xs text-repolens-muted mt-1">Unlock AI summaries, career scoring, and recommendations</p>
         </div>
 
         {error && (
@@ -59,7 +59,7 @@ export const RegisterPage: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-titan-muted uppercase tracking-wider mb-1.5">Email Address</label>
+            <label className="block text-xs font-bold text-repolens-muted uppercase tracking-wider mb-1.5">Email Address</label>
             <div className="relative">
               <input
                 type="email"
@@ -67,14 +67,14 @@ export const RegisterPage: React.FC = () => {
                 placeholder="developer@titansearch.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-titan-dark border border-titan-border focus:border-titan-primary rounded-xl py-3 pl-10 pr-4 text-xs text-titan-text placeholder-[#475569] outline-none"
+                className="w-full bg-repolens-dark border border-repolens-border focus:border-repolens-primary rounded-xl py-3 pl-10 pr-4 text-xs text-repolens-text placeholder-[#475569] outline-none"
               />
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-titan-muted" size={16} />
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-repolens-muted" size={16} />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-titan-muted uppercase tracking-wider mb-1.5">Password</label>
+            <label className="block text-xs font-bold text-repolens-muted uppercase tracking-wider mb-1.5">Password</label>
             <div className="relative">
               <input
                 type="password"
@@ -82,25 +82,25 @@ export const RegisterPage: React.FC = () => {
                 placeholder="Minimum 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-titan-dark border border-titan-border focus:border-titan-primary rounded-xl py-3 pl-10 pr-4 text-xs text-titan-text placeholder-[#475569] outline-none"
+                className="w-full bg-repolens-dark border border-repolens-border focus:border-repolens-primary rounded-xl py-3 pl-10 pr-4 text-xs text-repolens-text placeholder-[#475569] outline-none"
               />
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-titan-muted" size={16} />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-repolens-muted" size={16} />
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading || success}
-            className="w-full bg-titan-primary hover:bg-blue-600 text-titan-text py-3 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 mt-6"
+            className="w-full bg-repolens-primary hover:bg-blue-600 text-repolens-text py-3 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 mt-6"
           >
             {loading && <RefreshCw size={14} className="animate-spin" />}
             <span>{loading ? 'Creating Account...' : 'Sign Up'}</span>
           </button>
         </form>
 
-        <p className="text-center text-xs text-titan-muted mt-6">
+        <p className="text-center text-xs text-repolens-muted mt-6">
           Already have an account?{' '}
-          <button onClick={() => navigate('/login')} className="text-titan-primary hover:underline font-bold">
+          <button onClick={() => navigate('/login')} className="text-repolens-primary hover:underline font-bold">
             Sign In
           </button>
         </p>
