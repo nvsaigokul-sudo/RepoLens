@@ -21,7 +21,7 @@
         <java.version>21</java.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <jjwt.version>0.12.5</jjwt.version>
-        <bucket4j.version>8.10.1</bucket4j.version>
+        <bucket4j.version>8.11.1</bucket4j.version>
         <springdoc.version>2.5.0</springdoc.version>
     </properties>
 
