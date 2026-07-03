@@ -1,5 +1,7 @@
 # RepoLens — AI-Powered Repository Intelligence Platform
 
+**Live Deployment URL**: [https://repolens-7hhs.onrender.com/](https://repolens-7hhs.onrender.com/)
+
 > **Project Motto**: *RepoLens helps developers discover, analyze, compare, understand, and evaluate software repositories. GitHub Search only finds repositories; RepoLens explains them.*
 
 ---
