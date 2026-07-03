@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/repolens
+    username: repolens
+    password: repolens
+logging:
+  level:
+    com.titansearch: DEBUG
+    org.springframework.web: INFO

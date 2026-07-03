@@ -1,17 +1,17 @@
 # Stage 1: Build React SPA
 FROM node:20-alpine AS frontend-build
 WORKDIR /app
-COPY titansearch-frontend/package*.json ./
+COPY repolens-frontend/package*.json ./
 RUN npm install
-COPY titansearch-frontend/ ./
+COPY repolens-frontend/ ./
 RUN npm run build
 
 # Stage 2: Build Spring Boot Backend
 FROM maven:3.9-amazoncorretto-21 AS backend-build
 WORKDIR /app
-COPY titansearch-backend/pom.xml ./
+COPY repolens-backend/pom.xml ./
 RUN mvn dependency:go-offline
-COPY titansearch-backend/ ./
+COPY repolens-backend/ ./
 # Copy React compiled assets into Spring Boot static resources folder
 COPY --from=frontend-build /app/dist/ ./src/main/resources/static/
 RUN mvn clean package -DskipTests

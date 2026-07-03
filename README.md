@@ -37,14 +37,14 @@ RepoLens/
 ├── nginx.conf                     # Nginx proxy mapping routes
 ├── README.md                      # Platform documentation
 ├── RepoLens_Complete_PRD.md       # Product Requirements Document
-├── titansearch-backend/           # Java Spring Boot API Project
+├── repolens-backend/           # Java Spring Boot API Project
 │   ├── Dockerfile
 │   ├── pom.xml
 │   ├── src/main/resources/
 │   │   ├── application.yml        # Configuration profiles
 │   │   └── db/migration/          # SQL Flyway schema versions
 │   └── src/main/java/             # Source files (controllers, services, entities)
-└── titansearch-frontend/          # React Single Page Application
+└── repolens-frontend/          # React Single Page Application
     ├── Dockerfile
     ├── package.json
     ├── tailwind.config.js

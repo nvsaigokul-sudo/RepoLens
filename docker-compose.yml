@@ -32,7 +32,7 @@ services:
       retries: 5
 
   backend:
-    build: ./titansearch-backend
+    build: ./repolens-backend
     container_name: spring-backend
     ports:
       - "8080:8080"
@@ -51,7 +51,7 @@ services:
     restart: always
 
   frontend:
-    build: ./titansearch-frontend
+    build: ./repolens-frontend
     container_name: react-frontend
     ports:
       - "80:80"
