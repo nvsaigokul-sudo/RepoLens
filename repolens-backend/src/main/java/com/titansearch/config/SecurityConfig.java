@@ -39,6 +39,11 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Static resources & frontend assets
+                .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico", "/*.png", "/*.svg", "/*.js", "/*.css").permitAll()
+                // React client-side pages
+                .requestMatchers("/login", "/register", "/repository/**").permitAll()
+                // API endpoints
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/api/v1/repositories/search", "/api/v1/repositories/*/*").permitAll()
                 .requestMatchers("/api/v1/repositories/*/*/tech-stack", "/api/v1/repositories/*/*/health-score", "/api/v1/repositories/*/*/architecture").permitAll()
