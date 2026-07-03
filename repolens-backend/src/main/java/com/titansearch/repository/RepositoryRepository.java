@@ -19,9 +19,9 @@ public interface RepositoryRepository extends JpaRepository<Repository, Long> {
         SELECT DISTINCT r FROM Repository r
         LEFT JOIN r.topics t
         WHERE (:q IS NULL OR
-               LOWER(r.fullName) LIKE LOWER(CONCAT('%', :q, '%')) OR
-               LOWER(r.description) LIKE LOWER(CONCAT('%', :q, '%')) OR
-               LOWER(t.topic) LIKE LOWER(CONCAT('%', :q, '%')))
+               LOWER(r.fullName) LIKE LOWER(:q) OR
+               LOWER(r.description) LIKE LOWER(:q) OR
+               LOWER(t.topic) LIKE LOWER(:q))
           AND (:language IS NULL OR LOWER(r.primaryLanguage) = LOWER(:language))
           AND (:minStars IS NULL OR r.stars >= :minStars)
         """)

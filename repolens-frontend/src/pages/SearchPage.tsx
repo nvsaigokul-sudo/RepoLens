@@ -31,7 +31,7 @@ export const SearchPage: React.FC = () => {
 
     try {
       // Endpoint matches Phase 2 Search API: GET /api/v1/repositories/search?q=query
-      const token = localStorage.getItem('titan_token');
+      const token = localStorage.getItem('repolens_token');
       const response = await axios.get(`/api/v1/repositories/search?q=${encodeURIComponent(query)}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
