@@ -42,7 +42,9 @@ public enum TechSignature {
     REDIS_PY("requirements.txt", TechCategory.DATABASE, "Redis", 0.20, List.of("redis")),
 
     DOCKER_COMPOSE("docker-compose.yml", TechCategory.INFRA, "Docker", 0.95, List.of("version", "services")),
-    DOCKERFILE("Dockerfile", TechCategory.INFRA, "Docker", 0.80, List.of("FROM", "RUN", "CMD", "EXPOSE"));
+    DOCKERFILE("Dockerfile", TechCategory.INFRA, "Docker", 0.80, List.of("FROM", "RUN", "CMD", "EXPOSE")),
+    KUBERNETES("k8s", TechCategory.INFRA, "Kubernetes", 0.90, List.of("kind: Deployment")),
+    NODE_JS("package.json", TechCategory.BACKEND, "Node.js", 0.30, List.of());
 
     private final String fileName;
     private final TechCategory category;

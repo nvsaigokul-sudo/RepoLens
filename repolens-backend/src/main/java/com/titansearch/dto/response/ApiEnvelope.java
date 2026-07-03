@@ -14,6 +14,10 @@ public record ApiEnvelope<T>(T data, ApiMeta meta, ApiError error) {
         return new ApiEnvelope<>(null, null, error);
     }
 
+    public static <T> ApiEnvelope<T> error(String code, String message) {
+        return new ApiEnvelope<>(null, null, new ApiError(code, message));
+    }
+
     public record ApiMeta(boolean cached, Long cacheTtlSeconds) {}
 
     public record ApiError(String code, String message) {}
