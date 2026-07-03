@@ -24,7 +24,14 @@ export const SearchPage: React.FC = () => {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
+
+    // If query is in owner/repo format, navigate directly to index/view it
+    if (trimmedQuery.includes('/') && !trimmedQuery.includes(' ')) {
+      navigate(`/repository/${trimmedQuery}`);
+      return;
+    }
 
     setLoading(true);
     setError(null);

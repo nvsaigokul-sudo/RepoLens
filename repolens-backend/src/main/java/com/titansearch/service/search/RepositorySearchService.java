@@ -32,7 +32,7 @@ public class RepositorySearchService {
     // A background GitHub-crawling indexer arrives in Phase 3 for cold-start coverage.
     public PagedResponse<RepositorySummaryResponse> search(RepositorySearchRequest request) {
         var pageable = PageRequest.of(request.page(), request.size(), Sort.by(Sort.Direction.DESC, "stars"));
-        String qParam = request.q() != null && !request.q().trim().isEmpty() ? "%" + request.q().trim() + "%" : null;
+        String qParam = request.q() != null && !request.q().trim().isEmpty() ? "%" + request.q().trim().toLowerCase() + "%" : null;
         Page<Repository> page = repositoryRepository.search(
                 qParam, request.language(), request.minStars(), pageable);
 
