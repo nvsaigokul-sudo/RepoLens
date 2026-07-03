@@ -18,7 +18,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(RepositorySearchController.class)
+@WebMvcTest(value = RepositorySearchController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 class RepositorySearchControllerTest {
 
     @Autowired MockMvc mockMvc;
@@ -26,6 +26,17 @@ class RepositorySearchControllerTest {
     @MockBean RepositorySearchService repositorySearchService;
     @MockBean JwtAuthFilter jwtAuthFilter;
     @MockBean JwtService jwtService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() throws Exception {
+        org.mockito.Mockito.doAnswer(invocation -> {
+            jakarta.servlet.http.HttpServletRequest request = invocation.getArgument(0);
+            jakarta.servlet.http.HttpServletResponse response = invocation.getArgument(1);
+            jakarta.servlet.FilterChain chain = invocation.getArgument(2);
+            chain.doFilter(request, response);
+            return null;
+        }).when(jwtAuthFilter).doFilter(any(), any(), any());
+    }
 
     @Test
     void search_returnsPagedResults() throws Exception {
