@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Search, Star, GitFork, AlertCircle, Bookmark, LogOut } from 'lucide-react';
+import { Search, Star, GitFork, AlertCircle, LogOut } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
 interface RepositorySummary {

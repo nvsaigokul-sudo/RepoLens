@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
-  ArrowLeft, Star, GitFork, AlertCircle, FileText, Cpu, Heart, BarChart2, Briefcase, Share2, RefreshCw 
+  ArrowLeft, Star, GitFork, AlertCircle, RefreshCw 
 } from 'lucide-react';
 import { DiagramCanvas } from '../components/architecture/DiagramCanvas';
 import { HealthScoreGauge } from '../components/shared/HealthScoreGauge';
