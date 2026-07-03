@@ -48,6 +48,10 @@ titansearch:
   cache:
     search-ttl-seconds: 300
     detail-ttl-seconds: 900
+  ai:
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: gemini-1.5-flash
 
 springdoc:
   api-docs:
