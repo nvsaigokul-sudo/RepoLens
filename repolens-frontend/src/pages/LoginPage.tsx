@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Mail, Lock, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { DebugErrorDetails } from '../components/shared/DebugErrorDetails';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<any | null>(null);
 
   const { login } = useAuthStore();
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ export const LoginPage: React.FC = () => {
         setError('Login failed. Please verify credentials.');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Login request failed.');
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -50,9 +51,9 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {error && (
-          <div className="bg-red-950/30 border border-red-900/50 p-4 rounded-xl flex items-center space-x-3 mb-6">
-            <AlertCircle className="text-red-400 shrink-0" size={18} />
-            <p className="text-xs text-red-300">{error}</p>
+          <div className="mb-6 flex items-start space-x-3">
+            <AlertCircle className="text-red-400 shrink-0 mt-1" size={18} />
+            <DebugErrorDetails error={error} />
           </div>
         )}
 

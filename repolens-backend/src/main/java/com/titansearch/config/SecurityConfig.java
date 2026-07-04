@@ -1,6 +1,7 @@
 package com.titansearch.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.titansearch.filter.DebugLoggingFilter;
 import com.titansearch.filter.RateLimitFilter;
 import com.titansearch.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final RateLimitConfig rateLimitConfig;
     private final ObjectMapper objectMapper;
+    private final DebugLoggingFilter debugLoggingFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -51,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(debugLoggingFilter, JwtAuthFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(rateLimitFilter(), JwtAuthFilter.class);
 

@@ -7,6 +7,7 @@ import {
 import { DiagramCanvas } from '../components/architecture/DiagramCanvas';
 import { HealthScoreGauge } from '../components/shared/HealthScoreGauge';
 import { usePolling } from '../hooks/usePolling';
+import { DebugErrorDetails } from '../components/shared/DebugErrorDetails';
 
 interface RepositoryDetail {
   id: number;
@@ -25,7 +26,7 @@ export const RepositoryDetailPage: React.FC = () => {
 
   const [repository, setRepository] = useState<RepositoryDetail | null>(null);
   const [loadingRepo, setLoadingRepo] = useState(true);
-  const [errorRepo, setErrorRepo] = useState<string | null>(null);
+  const [errorRepo, setErrorRepo] = useState<any | null>(null);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'tech' | 'health' | 'architecture' | 'ai' | 'resume'>('overview');
 
@@ -35,7 +36,7 @@ export const RepositoryDetailPage: React.FC = () => {
       setLoadingRepo(true);
       setErrorRepo(null);
       try {
-        const token = localStorage.getItem('titan_token');
+        const token = localStorage.getItem('repolens_token');
         const res = await axios.get(`/api/v1/repositories/${owner}/${repo}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
@@ -45,7 +46,7 @@ export const RepositoryDetailPage: React.FC = () => {
           setErrorRepo('Repository not found.');
         }
       } catch (err: any) {
-        setErrorRepo(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to fetch repository.');
+        setErrorRepo(err);
       } finally {
         setLoadingRepo(false);
       }
@@ -185,13 +186,17 @@ export const RepositoryDetailPage: React.FC = () => {
 
   if (errorRepo || !repository) {
     return (
-      <div className="max-w-xl mx-auto mt-24 bg-red-950/30 border border-red-900/50 p-6 rounded-xl text-center">
-        <AlertCircle size={32} className="text-red-400 mx-auto mb-4" />
-        <h3 className="text-lg font-bold text-repolens-text mb-2">Sync Action Failed</h3>
-        <p className="text-xs text-red-300 mb-6">{errorRepo || 'The requested repository could not be reached.'}</p>
-        <button onClick={() => navigate('/')} className="text-xs font-bold text-repolens-text bg-repolens-border px-4 py-2 rounded-lg hover:bg-repolens-card transition-all">
-          Back to Dashboard
-        </button>
+      <div className="max-w-2xl mx-auto mt-24 bg-repolens-card border border-repolens-border p-8 rounded-2xl text-center space-y-6 shadow-xl">
+        <div className="flex flex-col items-center">
+          <AlertCircle size={40} className="text-red-400 mb-2" />
+          <h3 className="text-lg font-bold text-repolens-text">Sync Action Failed</h3>
+        </div>
+        <DebugErrorDetails error={errorRepo || 'The requested repository could not be reached.'} />
+        <div>
+          <button onClick={() => navigate('/')} className="text-xs font-bold text-repolens-text bg-repolens-border hover:bg-repolens-card px-6 py-2.5 rounded-xl border border-repolens-border transition-all">
+            Back to Search
+          </button>
+        </div>
       </div>
     );
   }

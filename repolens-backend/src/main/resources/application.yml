@@ -59,3 +59,6 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+app:
+  debug-mode: ${APP_DEBUG_MODE:false}

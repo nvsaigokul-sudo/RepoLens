@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Search, Star, GitFork, AlertCircle, LogOut } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { DebugErrorDetails } from '../components/shared/DebugErrorDetails';
 
 interface RepositorySummary {
   id: number;
@@ -17,7 +18,7 @@ export const SearchPage: React.FC = () => {
   const [query, setQuery] = useState('');
   const [repos, setRepos] = useState<RepositorySummary[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<any | null>(null);
 
   const { logout, user } = useAuthStore();
   const navigate = useNavigate();
@@ -49,7 +50,7 @@ export const SearchPage: React.FC = () => {
         setError('Failed to fetch search results.');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Error occurred while querying repositories.');
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -123,9 +124,9 @@ export const SearchPage: React.FC = () => {
 
       {/* Error Feedback */}
       {error && (
-        <div className="max-w-xl mx-auto bg-red-950/30 border border-red-900/50 p-4 rounded-xl flex items-center space-x-3 mb-8">
-          <AlertCircle className="text-red-400 shrink-0" size={18} />
-          <p className="text-xs text-red-300">{error}</p>
+        <div className="max-w-xl mx-auto mb-8 flex items-start space-x-3">
+          <AlertCircle className="text-red-400 shrink-0 mt-1" size={18} />
+          <DebugErrorDetails error={error} />
         </div>
       )}
 

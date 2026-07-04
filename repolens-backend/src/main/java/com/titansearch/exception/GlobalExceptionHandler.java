@@ -1,6 +1,8 @@
 package com.titansearch.exception;
 
 import com.titansearch.dto.response.ApiEnvelope;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -8,47 +10,72 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @Value("${app.debug-mode:false}")
+    private boolean debugMode;
+
+    private ResponseEntity<Object> buildResponse(Exception ex, HttpStatus status, String errorCode, String message, HttpServletRequest request) {
+        if (debugMode) {
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            ex.printStackTrace(pw);
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("success", false);
+            body.put("errorType", ex.getClass().getSimpleName());
+            body.put("message", message);
+            body.put("timestamp", LocalDateTime.now().toString());
+            body.put("path", request.getRequestURI());
+            body.put("stackTrace", sw.toString());
+
+            return ResponseEntity.status(status).body(body);
+        } else {
+            // Spring Envelope Standard Error response
+            ApiEnvelope<Void> envelope = ApiEnvelope.failed(new ApiEnvelope.ApiError(errorCode, message));
+            return ResponseEntity.status(status).body(envelope);
+        }
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiEnvelope<Void>> handleNotFound(ResourceNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("NOT_FOUND", ex.getMessage())));
+    public ResponseEntity<Object> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+        return buildResponse(ex, HttpStatus.NOT_FOUND, "NOT_FOUND", ex.getMessage(), request);
     }
 
     @ExceptionHandler(DuplicateResourceException.class)
-    public ResponseEntity<ApiEnvelope<Void>> handleDuplicate(DuplicateResourceException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("DUPLICATE", ex.getMessage())));
+    public ResponseEntity<Object> handleDuplicate(DuplicateResourceException ex, HttpServletRequest request) {
+        return buildResponse(ex, HttpStatus.CONFLICT, "DUPLICATE", ex.getMessage(), request);
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiEnvelope<Void>> handleBadCredentials(BadCredentialsException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("INVALID_CREDENTIALS", ex.getMessage())));
+    public ResponseEntity<Object> handleBadCredentials(BadCredentialsException ex, HttpServletRequest request) {
+        return buildResponse(ex, HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", ex.getMessage(), request);
     }
 
     @ExceptionHandler(GitHubApiException.class)
-    public ResponseEntity<ApiEnvelope<Void>> handleGitHubError(GitHubApiException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("GITHUB_API_ERROR", ex.getMessage())));
+    public ResponseEntity<Object> handleGitHubError(GitHubApiException ex, HttpServletRequest request) {
+        return buildResponse(ex, HttpStatus.BAD_GATEWAY, "GITHUB_API_ERROR", ex.getMessage(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiEnvelope<Void>> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<Object> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .collect(Collectors.joining("; "));
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("VALIDATION_ERROR", message)));
+        return buildResponse(ex, HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", message, request);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiEnvelope<Void>> handleGeneric(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("INTERNAL_ERROR", "Something went wrong")));
+    public ResponseEntity<Object> handleGeneric(Exception ex, HttpServletRequest request) {
+        String message = debugMode ? ex.getMessage() : "Something went wrong";
+        return buildResponse(ex, HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", message, request);
     }
 }

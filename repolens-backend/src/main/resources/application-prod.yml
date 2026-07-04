@@ -8,5 +8,6 @@ spring:
       minimum-idle: 5
 logging:
   level:
-    com.titansearch: INFO
-    root: WARN
+    root: DEBUG
+    org.springframework: DEBUG
+    com.titansearch: DEBUG
