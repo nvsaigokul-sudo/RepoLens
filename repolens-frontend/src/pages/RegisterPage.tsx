@@ -29,7 +29,7 @@ export const RegisterPage: React.FC = () => {
         setError('Registration failed. Please check fields.');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration request failed.');
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Registration request failed.');
     } finally {
       setLoading(false);
     }

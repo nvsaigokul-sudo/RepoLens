@@ -49,7 +49,7 @@ export const SearchPage: React.FC = () => {
         setError('Failed to fetch search results.');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error occurred while querying repositories.');
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Error occurred while querying repositories.');
     } finally {
       setLoading(false);
     }

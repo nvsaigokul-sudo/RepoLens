@@ -35,7 +35,7 @@ export const LoginPage: React.FC = () => {
         setError('Login failed. Please verify credentials.');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login request failed.');
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Login request failed.');
     } finally {
       setLoading(false);
     }

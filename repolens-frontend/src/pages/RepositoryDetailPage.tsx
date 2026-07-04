@@ -45,7 +45,7 @@ export const RepositoryDetailPage: React.FC = () => {
           setErrorRepo('Repository not found.');
         }
       } catch (err: any) {
-        setErrorRepo(err.response?.data?.message || 'Failed to fetch repository.');
+        setErrorRepo(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to fetch repository.');
       } finally {
         setLoadingRepo(false);
       }
