@@ -16,12 +16,12 @@ CREATE TABLE tech_stack_detections (
 CREATE TABLE health_scores (
     id                      BIGSERIAL PRIMARY KEY,
     repository_id           BIGINT NOT NULL UNIQUE REFERENCES repositories(id) ON DELETE CASCADE,
-    overall_score           SMALLINT NOT NULL CHECK (overall_score BETWEEN 0 AND 100),
-    documentation_score     SMALLINT NOT NULL CHECK (documentation_score BETWEEN 0 AND 100),
-    commit_activity_score   SMALLINT NOT NULL CHECK (commit_activity_score BETWEEN 0 AND 100),
-    issues_score            SMALLINT NOT NULL CHECK (issues_score BETWEEN 0 AND 100),
-    popularity_score        SMALLINT NOT NULL CHECK (popularity_score BETWEEN 0 AND 100),
-    maturity_score          SMALLINT NOT NULL CHECK (maturity_score BETWEEN 0 AND 100),
+    overall_score           INTEGER NOT NULL CHECK (overall_score BETWEEN 0 AND 100),
+    documentation_score     INTEGER NOT NULL CHECK (documentation_score BETWEEN 0 AND 100),
+    commit_activity_score   INTEGER NOT NULL CHECK (commit_activity_score BETWEEN 0 AND 100),
+    issues_score            INTEGER NOT NULL CHECK (issues_score BETWEEN 0 AND 100),
+    popularity_score        INTEGER NOT NULL CHECK (popularity_score BETWEEN 0 AND 100),
+    maturity_score          INTEGER NOT NULL CHECK (maturity_score BETWEEN 0 AND 100),
     computed_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
