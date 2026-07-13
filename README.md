@@ -4,26 +4,29 @@ RepoLens is a high-fidelity repository analysis platform that automatically scan
 
 ---
 
-## 🚀 One-Click Windows Launcher & Script
+## 🚀 Self-Contained Desktop Application (`RepoLens.exe`)
 
-We provide two lightweight options to automatically handle Docker initialization, service bootstrapping, and browser opening:
+RepoLens is compiled as a professional, self-contained desktop application. All required services, configuration files, front-end assets, and backend runtimes are fully embedded inside the executable binary.
 
-### Option 1: Compiled Executable (`RepoLens.exe`)
-A native compiled Windows binary with embedded company metadata and invoker manifests to reduce antivirus heuristic false positives.
-* **Download**: [Click here to download RepoLens.exe](https://github.com/nvsaigokul-sudo/RepoLens/raw/main/RepoLens.exe)
-* **Run**:
-  1. Open **Docker Desktop**.
-  2. Double-click **`RepoLens.exe`** in your project directory.
+No source code, development environment, or git repositories are required on the user's computer.
 
-### Option 2: Transparent Batch Script (`RepoLens.bat`) [Recommended for Antivirus-Safe Execution]
-A plain-text batch script that performs the exact same tasks. Since it is a readable script, it is 100% transparent and guaranteed not to trigger binary quarantine blocks from active antivirus engines like McAfee.
-* **Download**: [Click here to download RepoLens.bat](https://github.com/nvsaigokul-sudo/RepoLens/raw/main/RepoLens.bat)
-* **Run**:
-  1. Open **Docker Desktop**.
-  2. Double-click **`RepoLens.bat`** in your project directory.
+### 📥 Download & Launch
+1. **Download the Application**: [Click here to download RepoLens.exe](https://github.com/nvsaigokul-sudo/RepoLens/raw/main/RepoLens.exe)
+2. **Launch**:
+   * Open **Docker Desktop** (required local container runtime).
+   * Double-click **`RepoLens.exe`** from any folder (e.g., Downloads, Desktop).
+   * The application automatically installs to `%LOCALAPPDATA%\RepoLens`, starts the Postgres, Redis, backend, and frontend containers, and opens your browser at [http://localhost:3000](http://localhost:3000).
 
 > [!IMPORTANT]
-> **Setup Credentials**: Make sure your `GITHUB_TOKEN` and `GEMINI_API_KEY` environment variables are set in Windows (Settings -> Environment Variables) or active in your system environment before running either launcher.
+> **Setup Credentials**: Make sure your `GITHUB_TOKEN` and `GEMINI_API_KEY` environment variables are set in Windows (Settings -> Environment Variables) or active in your system environment before launching the application.
+
+---
+
+## 🛠️ Developer Mode Launcher (`RepoLens.bat`)
+
+For developers working directly inside the cloned repository workspace, we provide a transparent batch script launcher:
+* **Download/Run**: Double-click **`RepoLens.bat`** from the cloned project root folder.
+* It checks the development folder structures, starts local services via your workspace `docker-compose.yml`, and opens the browser.
 
 ---
 

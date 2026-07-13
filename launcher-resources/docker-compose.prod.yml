@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: repolens-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_DB: repolens
+      POSTGRES_USER: repolens
+      POSTGRES_PASSWORD: repolenspassword
+    ports:
+      - "5439:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: repolens-redis-prod
+    restart: always
+    ports:
+      - "6379:6379"
+
+  backend:
+    image: eclipse-temurin:21-jre-alpine
+    container_name: repolens-backend-prod
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/repolens
+      SPRING_DATASOURCE_USERNAME: repolens
+      SPRING_DATASOURCE_PASSWORD: repolenspassword
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - ./titansearch-backend-0.2.0.jar:/app/backend.jar
+    entrypoint: ["java", "-jar", "/app/backend.jar"]
+
+  frontend:
+    image: nginx:alpine
+    container_name: repolens-frontend-prod
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./dist:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+
+volumes:
+  postgres_data:
