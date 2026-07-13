@@ -48,7 +48,6 @@ namespace RepoLens
                 {
                     resolvedDir = detectedProjects[0];
                     SaveCachedPath(resolvedDir);
-                    MessageBox.Show(string.Format("Auto-detected valid RepoLens project root at:\n{0}", resolvedDir), "Project Auto-Detected", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else if (detectedProjects.Count > 1)
                 {
@@ -81,80 +80,47 @@ namespace RepoLens
                 }
             }
 
-            // 5. Prompt user manually with Folder Browser GUI
+            // 5. Check if the default workspace already exists and contains a valid project
             if (resolvedDir == null)
             {
-                using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+                string defaultWorkspace = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "RepoLens-Workspace");
+                string defaultProjectRoot = Path.Combine(defaultWorkspace, "RepoLens-main");
+                if (IsValidProjectDir(defaultProjectRoot))
                 {
-                    dialog.Description = "Please select the ROOT folder of your RepoLens project.\n\n" +
-                                         "The selected folder MUST contain the following files:\n" +
-                                         "  - docker-compose.yml\n" +
-                                         "  - titansearch-backend/ (Directory)\n" +
-                                         "  - titansearch-frontend/ (Directory)\n\n" +
-                                         "Example Folder Structure:\n" +
-                                         "RepoLens/\n" +
-                                         "├── docker-compose.yml\n" +
-                                         "├── titansearch-backend/\n" +
-                                         "└── titansearch-frontend/";
-                    dialog.ShowNewFolderButton = false;
+                    resolvedDir = defaultProjectRoot;
+                    SaveCachedPath(resolvedDir);
+                }
+            }
 
-                    if (dialog.ShowDialog() == DialogResult.OK)
+            // 6. First-Time Setup Fallback: Automatically download, extract, and start services
+            if (resolvedDir == null)
+            {
+                string defaultWorkspace = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "RepoLens-Workspace");
+                string defaultProjectRoot = Path.Combine(defaultWorkspace, "RepoLens-main");
+                string configFilePath = GetConfigFilePath();
+
+                using (SetupProgressForm setupForm = new SetupProgressForm(defaultWorkspace, defaultProjectRoot, configFilePath))
+                {
+                    if (setupForm.ShowDialog() == DialogResult.OK)
                     {
-                        string selected = dialog.SelectedPath;
-                        searchedPaths.Add(selected + " (User Selected)");
-
-                        // Direct check
-                        if (IsValidProjectDir(selected))
-                        {
-                            resolvedDir = selected;
-                            SaveCachedPath(resolvedDir);
-                        }
-                        else
-                        {
-                            // Try scanning downwards from selected folder
-                            List<string> subDetected = new List<string>();
-                            SearchForProjects(selected, 3, subDetected);
-
-                            if (subDetected.Count == 1)
-                            {
-                                resolvedDir = subDetected[0];
-                                SaveCachedPath(resolvedDir);
-                                MessageBox.Show(string.Format("Auto-detected valid RepoLens project root inside selected folder at:\n{0}", resolvedDir), "Project Auto-Detected", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            }
-                            else if (subDetected.Count > 1)
-                            {
-                                using (ProjectSelectorForm selector = new ProjectSelectorForm(subDetected))
-                                {
-                                    if (selector.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(selector.SelectedProject))
-                                    {
-                                        resolvedDir = selector.SelectedProject;
-                                        SaveCachedPath(resolvedDir);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                ShowErrorDialog("Invalid project folder selected!", exeDir, workingDir, searchedPaths, selected);
-                                return;
-                            }
-                        }
+                        resolvedDir = defaultProjectRoot;
                     }
                     else
                     {
-                        ShowErrorDialog("Could not locate RepoLens project directory.", exeDir, workingDir, searchedPaths, null);
+                        // Setup cancelled or failed, exit application
                         return;
                     }
                 }
             }
 
-            // 6. Check if Docker is running
+            // 7. Check if Docker is running
             if (!IsDockerRunning())
             {
                 MessageBox.Show("Docker Desktop is not running. Please start Docker Desktop and try again.", "Docker Not Running", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // 7. Start services
+            // 8. Start services
             MessageBox.Show(string.Format("Starting RepoLens services via Docker Compose at:\n{0}\n\nThis may take a few seconds...", resolvedDir), "RepoLens Launcher", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             if (!RunDockerCompose(resolvedDir))
@@ -163,7 +129,7 @@ namespace RepoLens
                 return;
             }
 
-            // 8. Wait and open UI
+            // 9. Wait and open UI in default browser
             Thread.Sleep(3000);
             try
             {
@@ -175,7 +141,7 @@ namespace RepoLens
             }
         }
 
-        static bool IsValidProjectDir(string path)
+        public static bool IsValidProjectDir(string path)
         {
             bool isValid;
             List<string> results;
@@ -183,7 +149,7 @@ namespace RepoLens
             return isValid;
         }
 
-        static void ValidateProjectDir(string path, out List<string> results, out bool isValid)
+        public static void ValidateProjectDir(string path, out List<string> results, out bool isValid)
         {
             results = new List<string>();
             isValid = true;
@@ -266,7 +232,7 @@ namespace RepoLens
             return null;
         }
 
-        static void SaveCachedPath(string path)
+        public static void SaveCachedPath(string path)
         {
             try
             {
@@ -281,43 +247,13 @@ namespace RepoLens
             catch { }
         }
 
-        static string GetConfigFilePath()
+        public static string GetConfigFilePath()
         {
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             return Path.Combine(appData, Path.Combine("RepoLens", "launcher.cfg"));
         }
 
-        static void ShowErrorDialog(string title, string exeDir, string workingDir, List<string> searchedPaths, string selectedPath)
-        {
-            string pathsList = string.Join("\n- ", searchedPaths.ToArray());
-            string validationDetails = "";
-
-            if (!string.IsNullOrEmpty(selectedPath))
-            {
-                List<string> checkList;
-                bool isValid;
-                ValidateProjectDir(selectedPath, out checkList, out isValid);
-                validationDetails = string.Format(
-                    "Selected Folder:\n{0}\n\n" +
-                    "Project Validation Checklist:\n{1}\n\n" +
-                    "Reason:\nAt least one required project resource (docker-compose.yml, titansearch-backend/, or titansearch-frontend/) is missing. Please select the root project folder.\n\n",
-                    selectedPath,
-                    string.Join("\n", checkList.ToArray())
-                );
-            }
-
-            string message = string.Format(
-                "{0}\n\n" +
-                "{1}" +
-                "Executable Directory:\n{2}\n\n" +
-                "Current Working Directory:\n{3}\n\n" +
-                "Directories Searched:\n- {4}",
-                title, validationDetails, exeDir, workingDir, pathsList
-            );
-            MessageBox.Show(message, "RepoLens Launcher Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-
-        static bool IsDockerRunning()
+        public static bool IsDockerRunning()
         {
             try
             {
@@ -342,7 +278,7 @@ namespace RepoLens
             }
         }
 
-        static bool RunDockerCompose(string workingDir)
+        public static bool RunDockerCompose(string workingDir)
         {
             try
             {
@@ -366,6 +302,176 @@ namespace RepoLens
             {
                 return false;
             }
+        }
+    }
+
+    public class SetupProgressForm : Form
+    {
+        private ProgressBar progressBar;
+        private Label statusLabel;
+        private string workspacePath;
+        private string projectRootPath;
+        private string configPath;
+
+        public SetupProgressForm(string workspacePath, string projectRootPath, string configPath)
+        {
+            this.workspacePath = workspacePath;
+            this.projectRootPath = projectRootPath;
+            this.configPath = configPath;
+
+            this.Text = "RepoLens First-Time Setup";
+            this.Size = new System.Drawing.Size(460, 180);
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+
+            Label welcomeLabel = new Label()
+            {
+                Text = "Setting up RepoLens Workspace...",
+                Font = new System.Drawing.Font("Segoe UI", 10, System.Drawing.FontStyle.Bold),
+                Location = new System.Drawing.Point(20, 15),
+                Size = new System.Drawing.Size(400, 25)
+            };
+            this.Controls.Add(welcomeLabel);
+
+            statusLabel = new Label()
+            {
+                Text = "Initializing setup processes...",
+                Font = new System.Drawing.Font("Segoe UI", 9),
+                Location = new System.Drawing.Point(20, 45),
+                Size = new System.Drawing.Size(400, 20)
+            };
+            this.Controls.Add(statusLabel);
+
+            progressBar = new ProgressBar()
+            {
+                Location = new System.Drawing.Point(20, 75),
+                Size = new System.Drawing.Size(400, 25),
+                Minimum = 0,
+                Maximum = 100,
+                Value = 0
+            };
+            this.Controls.Add(progressBar);
+
+            this.Load += (s, e) => StartSetup();
+        }
+
+        private void StartSetup()
+        {
+            Thread thread = new Thread(PerformSetupSteps);
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
+        private void UpdateStatus(string text, int percent)
+        {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(() => UpdateStatus(text, percent)));
+                return;
+            }
+            statusLabel.Text = text;
+            progressBar.Value = percent;
+        }
+
+        private void PerformSetupSteps()
+        {
+            try
+            {
+                // Step 1: Check Docker
+                UpdateStatus("Checking Docker Desktop status...", 10);
+                if (!Program.IsDockerRunning())
+                {
+                    ShowError("Docker Desktop is not running.\n\nPlease start Docker Desktop first and rerun this launcher.");
+                    return;
+                }
+
+                // Step 2: Download repository from GitHub
+                UpdateStatus("Downloading RepoLens project from GitHub (Tls1.2)...", 30);
+                string zipPath = Path.Combine(Path.GetTempPath(), "repolens_temp.zip");
+                using (System.Net.WebClient client = new System.Net.WebClient())
+                {
+                    // Force TLS 1.2 for secure downloads from GitHub
+                    System.Net.ServicePointManager.SecurityProtocol = (System.Net.SecurityProtocolType)3072;
+                    client.DownloadFile("https://github.com/nvsaigokul-sudo/RepoLens/archive/refs/heads/main.zip", zipPath);
+                }
+
+                // Step 3: Extract repository ZIP to workspace
+                UpdateStatus("Extracting files to local workspace...", 60);
+                if (Directory.Exists(workspacePath))
+                {
+                    Directory.Delete(workspacePath, true);
+                }
+                Directory.CreateDirectory(workspacePath);
+
+                // Use PowerShell Expand-Archive (built-in, reliable on Windows 10+)
+                string psCommand = string.Format(
+                    "Expand-Archive -Path '{0}' -DestinationPath '{1}' -Force",
+                    zipPath, workspacePath
+                );
+                ProcessStartInfo psStart = new ProcessStartInfo
+                {
+                    FileName = "powershell",
+                    Arguments = "-Command \"" + psCommand + "\"",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                using (Process process = Process.Start(psStart))
+                {
+                    process.WaitForExit();
+                    if (process.ExitCode != 0)
+                    {
+                        ShowError("Failed to extract files. PowerShell unzip failed.");
+                        return;
+                    }
+                }
+
+                // Delete temp ZIP
+                try { File.Delete(zipPath); } catch { }
+
+                if (!Program.IsValidProjectDir(projectRootPath))
+                {
+                    ShowError("Extracted directory structure is invalid. Required project files were not found.");
+                    return;
+                }
+
+                // Step 4: Bootstrapping containers via Docker Compose
+                UpdateStatus("Bootstrapping Docker containers...", 80);
+                if (!Program.RunDockerCompose(projectRootPath))
+                {
+                    ShowError("Failed to start Docker Compose services. Verify your Docker setup.");
+                    return;
+                }
+
+                // Step 5: Save cached directory path
+                Program.SaveCachedPath(projectRootPath);
+
+                UpdateStatus("Workspace ready! Launching application...", 100);
+                Thread.Sleep(1000);
+
+                this.BeginInvoke(new Action(() =>
+                {
+                    this.DialogResult = DialogResult.OK;
+                    this.Close();
+                }));
+            }
+            catch (Exception ex)
+            {
+                ShowError("An unexpected error occurred during setup: " + ex.Message);
+            }
+        }
+
+        private void ShowError(string message)
+        {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(() => ShowError(message)));
+                return;
+            }
+            MessageBox.Show(message, "Setup Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            this.DialogResult = DialogResult.Cancel;
+            this.Close();
         }
     }
 

@@ -44,67 +44,74 @@ if not defined RESOLVED_DIR (
     )
 )
 
-:: 5. Prompt user manually if still not resolved
+:: 5. Check if the default workspace already exists and contains a valid project
 if not defined RESOLVED_DIR (
-    echo ============================================================
-    echo Please specify the ROOT folder of your RepoLens project.
-    echo.
-    echo The folder must contain:
-    echo   - docker-compose.yml
-    echo   - titansearch-backend/ (Directory)
-    echo   - titansearch-frontend/ (Directory)
-    echo ============================================================
-    echo.
-    set /p USER_PATH="Enter the full path to the RepoLens folder: "
-    
-    :: Remove quotes if entered by user
-    set "USER_PATH=!USER_PATH:"=!"
-    
-    call :ValidateFolder "!USER_PATH!"
+    set "DEFAULT_WORKSPACE=%USERPROFILE%\RepoLens-Workspace"
+    set "DEFAULT_PROJECT_ROOT=!DEFAULT_WORKSPACE!\RepoLens-main"
+    call :ValidateFolder "!DEFAULT_PROJECT_ROOT!"
     if "!FOLDER_VALID!"=="1" (
-        set "RESOLVED_DIR=!USER_PATH!"
+        set "RESOLVED_DIR=!DEFAULT_PROJECT_ROOT!"
         if not exist "%APPDATA%\RepoLens" mkdir "%APPDATA%\RepoLens"
-        echo !USER_PATH!>"%CONFIG_FILE%"
-    ) else (
-        :: Try scanning subfolders 1 level deep inside the user-entered path
-        set "USER_SUB_FOUND="
-        for /d %%d in ("!USER_PATH!\*") do (
-            if not defined USER_SUB_FOUND (
-                call :ValidateFolder "%%d"
-                if "!FOLDER_VALID!"=="1" (
-                    set "USER_SUB_FOUND=%%d"
-                )
-            )
-        )
-        if defined USER_SUB_FOUND (
-            set "RESOLVED_DIR=!USER_SUB_FOUND!"
-            echo Auto-detected RepoLens project folder inside selected directory at:
-            echo "!USER_SUB_FOUND!"
-            echo.
-            if not exist "%APPDATA%\RepoLens" mkdir "%APPDATA%\RepoLens"
-            echo !USER_SUB_FOUND!>"%CONFIG_FILE%"
-        ) else (
-            echo.
-            echo ============================================================
-            echo [ERROR] Invalid project folder selected!
-            echo ============================================================
-            echo Selected Folder: !USER_PATH!
-            echo.
-            echo Project Validation Checklist:
-            echo !DC_STATUS!
-            echo !BE_STATUS!
-            echo !FE_STATUS!
-            echo.
-            echo Reason:
-            echo At least one required resource is missing. Please select the root project folder.
-            echo.
-            echo Executed Dir: %~dp0
-            echo ============================================================
-            echo.
-            pause
-            exit /b 1
-        )
+        echo !DEFAULT_PROJECT_ROOT!>"%CONFIG_FILE%"
     )
+)
+
+:: 6. First-Time Setup Fallback: Automatically download, extract, and start services
+if not defined RESOLVED_DIR (
+    set "DEFAULT_WORKSPACE=%USERPROFILE%\RepoLens-Workspace"
+    set "DEFAULT_PROJECT_ROOT=!DEFAULT_WORKSPACE!\RepoLens-main"
+    
+    echo ============================================================
+    echo Welcome to RepoLens First-Time Setup!
+    echo ============================================================
+    echo We are automatically creating your RepoLens workspace at:
+    echo "!DEFAULT_WORKSPACE!"
+    echo.
+    
+    echo Checking if Docker is running...
+    docker info >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo [ERROR] Docker is not running. Please start Docker Desktop first and try again.
+        pause
+        exit /b 1
+    )
+    
+    echo Step 1/3: Downloading RepoLens repository from GitHub...
+    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://github.com/nvsaigokul-sudo/RepoLens/archive/refs/heads/main.zip' -OutFile '%TEMP%\repolens.zip'"
+    if %errorlevel% neq 0 (
+        echo [ERROR] Failed to download project resources from GitHub.
+        pause
+        exit /b 1
+    )
+    
+    echo Step 2/3: Extracting files to workspace...
+    if exist "!DEFAULT_WORKSPACE!" rd /s /q "!DEFAULT_WORKSPACE!"
+    mkdir "!DEFAULT_WORKSPACE!"
+    powershell -Command "Expand-Archive -Path '%TEMP%\repolens.zip' -DestinationPath '!DEFAULT_WORKSPACE!' -Force"
+    del /f /q "%TEMP%\repolens.zip"
+    
+    call :ValidateFolder "!DEFAULT_PROJECT_ROOT!"
+    if "!FOLDER_VALID!"=="0" (
+        echo [ERROR] Failed to extract project files properly.
+        pause
+        exit /b 1
+    )
+    
+    echo Step 3/3: Starting Docker containers...
+    cd /d "!DEFAULT_PROJECT_ROOT!"
+    docker compose up -d
+    if %errorlevel% neq 0 (
+        echo [ERROR] Failed to start Docker services.
+        pause
+        exit /b 1
+    )
+    
+    :: Save to configuration file
+    if not exist "%APPDATA%\RepoLens" mkdir "%APPDATA%\RepoLens"
+    echo !DEFAULT_PROJECT_ROOT!>"%CONFIG_FILE%"
+    
+    set "RESOLVED_DIR=!DEFAULT_PROJECT_ROOT!"
+    echo Setup complete! Launching browser...
 )
 
 :: Remove trailing slash if any
