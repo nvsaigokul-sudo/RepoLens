@@ -4,40 +4,98 @@ RepoLens is a high-fidelity repository analysis platform that automatically scan
 
 ---
 
-## 🚀 Key Features
+## 📁 Repository Structure
 
-- **🔍 Smart Repository Search**: Query index databases filtered by primary languages, stars, and keywords.
-- **🏷️ Heuristic Tech Stack Detection**: Automatically parses configurations (e.g. Maven pom, package JSON) to categorize Frontend, Backend, Database, and Infrastructure components.
-- **📈 Quality Health Score**: Measures repository maturity, documentation, popularity, commit frequency, and open issue density.
-- **🧬 SVG Architecture Flowcharts**: Draws interactive client-server diagrams outlining database routing paths.
-- **🤖 Gemini AI Summaries**: Provides functional overviews, architectural layouts, and key learning takeaways.
-- **💼 Resume Relevance Mapping**: Evaluates codebase quality and maps developer strengths, weaknesses, and industry fit.
-- **🔒 Security & Performance**: Secure JWT token authorization, BCrypt credentials, Redis-backed rate limiting (Bucket4j), and resilience circuit breakers.
+```
+RepoLens/
+├── titansearch-backend/            # Spring Boot 3.3.2 application
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── java/com/titansearch/
+│   │   │   │   ├── config/         # Rate limiting, Caching, and Security setup
+│   │   │   │   ├── controller/     # REST Endpoints
+│   │   │   │   ├── dto/            # Request/Response payloads
+│   │   │   │   ├── entity/         # JPA database tables
+│   │   │   │   ├── repository/     # Postgres query layers
+│   │   │   │   ├── security/       # JWT Auth Filters
+│   │   │   │   └── service/        # Core business services
+│   │   │   └── resources/
+│   │   │       ├── db/migration/   # Flyway database schemas
+│   │   │       └── application.yml # Environment configurations
+│   │   └── test/                   # JUnit mock testing suite
+│   ├── Dockerfile
+│   └── pom.xml
+│
+├── titansearch-frontend/           # React 18 SPA
+│   ├── src/
+│   │   ├── assets/                 # Icons & SVGs
+│   │   ├── components/             # Gauge & Diagram visualization modules
+│   │   ├── pages/                  # Route layouts
+│   │   ├── App.tsx                 # Client routing
+│   │   └── index.css               # GitHub Dark stylesheet
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   └── package.json
+│
+└── docker-compose.yml              # Multi-container orchestration
+```
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack & Key Engines
 
-### Backend
-- **Core**: Spring Boot 3.3.2, Java 21, Spring Security (JWT)
-- **Data & Migration**: JPA Hibernate, PostgreSQL, Flyway migrations
-- **AI Integrations**: Gemini API, Resilience4j (Circuit Breakers & Retries), Async processing
-- **Performance**: Redis cache wrapper, Bucket4j rate limiting
+### Backend Core
+- **Framework**: Spring Boot 3.3.2, Java 21, Spring Security (JWT filter chain)
+- **Database Layer**: JPA Hibernate ORM, PostgreSQL database, Flyway schema migrations
+- **Heuristics & Scan Engines**:
+  - **Tech Stack Detector**: Matches signature files (`pom.xml`, `package.json`, `requirements.txt`, etc.) using regex rules to categorize stack elements.
+  - **Maturity & Health Calculator**: Evaluates Documentation presence, Pushed Activity, Issue Densities, Stars/Forks counts, and repository age to output an index out of 100.
+  - **System Flow Diagram**: Infers Backend, Frontend, Caches, and Database entities and traces connector paths as structured nodes and edges.
+- **AI Integrations**:
+  - **Gemini Client**: Generates JSON summary reports and recruiter portfolio analyses. Wrapped with **Resilience4j Circuit Breakers** and **Retry policies**.
+  - **Asynchronous Processing**: Slowly-executing AI generation steps run on async daemon threads, returning a `202 ACCEPTED` status. The UI polls the endpoint until generation is complete.
+- **Recommendations**: Case-insensitive Weighted Jaccard index matching overlapping technologies and repository topics.
+- **Performance**: Redis cache wrapper & Bucket4j API rate limiter.
 
-### Frontend
-- **Framework**: React 18, TypeScript, Vite
-- **Styling**: Modern, premium Vanilla CSS theme (dark slate background, glowing borders, custom glassmorphism)
-- **Icons**: Lucide React
-- **Routing**: React Router DOM v6
+### Frontend Client
+- **Framework**: React 18, TypeScript, Vite hot-reload bundler.
+- **Styling**: Premium, responsive **GitHub Dark palette** (Obsidian `#0d1117` backgrounds, `#30363d` active borders, link blues, and success greens).
+- **Widgets**: Custom radial SVG gauges for health percentages, and layout coordinated SVG path connectors for network routing diagrams.
+
+---
+
+## 📋 REST API Contracts
+
+### 🔐 Authentication
+- `POST /api/v1/auth/register` - Create user credentials. Returns JWT.
+- `POST /api/v1/auth/login` - Authenticate user credentials. Returns JWT.
+
+### 🔍 Repository Analytics
+- `GET /api/v1/repositories/search` - Paginated keyword search filtering by stars and languages.
+- `GET /api/v1/repositories/{owner}/{repo}` - Get synced metadata, star metrics, and language breakdowns.
+- `POST /api/v1/repositories/{owner}/{repo}/sync` - Trigger a fresh sync from the GitHub REST API.
+- `GET /api/v1/repositories/{owner}/{repo}/tech-stack` - Fetch detected tech frameworks.
+- `GET /api/v1/repositories/{owner}/{repo}/health-score` - Fetch calculated health percentages and sub-scores.
+- `GET /api/v1/repositories/{owner}/{repo}/architecture` - Get inferred system node architecture.
+- `GET /api/v1/repositories/{owner}/{repo}/similar` - Get recommended sibling repositories.
+
+### 🤖 AI Summary & Recruiter Rating
+- `GET /api/v1/repositories/{owner}/{repo}/ai-summary` - Get functional/architectural summary. Returns `202 PENDING` if compiling.
+- `POST /api/v1/ai-summary/regenerate` - Manually trigger an AI update (roles restricted, rate limited).
+- `POST /api/v1/repositories/{owner}/{repo}/resume-analysis` - Get recruiter portfolio fit analysis. Returns `202 PENDING` if compiling.
+
+### ⭐️ Saved favorites & search history
+- `GET /api/v1/favorites` - Get favorite repositories.
+- `POST /api/v1/favorites/{id}` - Add repository to favorites.
+- `DELETE /api/v1/favorites/{id}` - Remove repository from favorites.
+- `GET /api/v1/history` - Get user search query log.
 
 ---
 
 ## 📦 Container Setup & Local Deployment
 
-RepoLens is dockerized and ready to deploy with single-command orchestration:
-
-### Prerequisites
-Before running, configure your API credentials as environment variables:
+### Configure Environment Variables
+Configure your credentials in your current shell session:
 ```bash
 # Windows (PowerShell)
 $env:GITHUB_TOKEN="your-github-token"
@@ -50,33 +108,50 @@ export GEMINI_API_KEY="your-gemini-key"
 export JWT_SECRET="your-jwt-signing-secret"
 ```
 
-### Run with Docker Compose
-From the root workspace directory, run:
+### Option A: Run Full Stack via Docker
+Build and orchestrate all services inside Docker containers:
 ```bash
 docker compose up --build -d
 ```
+Once started, access the React client at [http://localhost:3000](http://localhost:3000) and the backend API at [http://localhost:8080](http://localhost:8080).
 
-Once started:
-- **React Frontend**: Access at [http://localhost:3000](http://localhost:3000)
-- **Backend API Server**: Access at [http://localhost:8080](http://localhost:8080)
-- **PostgreSQL Database**: Port `5432`
-- **Redis Cache**: Port `6379`
+### Option B: Run Dev Services Locally
+If you want hot-reloading active frontends and simple backend console logs:
+
+1. **Launch containerized database and cache dependencies**:
+   ```bash
+   docker compose up -d postgres redis
+   ```
+   *Note: Containerized PostgreSQL is mapped to port `5439` to prevent port collisions with native host PostgreSQL services.*
+
+2. **Run Spring Boot Backend**:
+   ```bash
+   cd titansearch-backend
+   mvn spring-boot:run
+   ```
+
+3. **Run React Frontend**:
+   ```bash
+   cd titansearch-frontend
+   npm install
+   npm run dev
+   ```
+   Open your browser to [http://localhost:5173](http://localhost:5173).
 
 ---
 
 ## 🧪 Local Testing
 
 ### Backend Unit Tests
-Compile the codebase and execute the Spring unit tests:
+Execute JUnit MockMvc controller slices and auth service checks:
 ```bash
 cd titansearch-backend
-mvn clean test "-Dtest=AuthServiceTest,RepositorySearchControllerTest"
+mvn test "-Dtest=AuthServiceTest,RepositorySearchControllerTest"
 ```
 
 ### Frontend Production Build
-Validate TypeScript compile compliance and build static bundle artifacts:
+Verify TypeScript compliance and package assets:
 ```bash
 cd titansearch-frontend
-npm install
 npm run build
 ```
