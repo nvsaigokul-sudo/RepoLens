@@ -76,13 +76,13 @@ namespace RepoLens
                         }
                         else
                         {
-                            ShowErrorDialog("Invalid project folder selected!", exeDir, workingDir, searchedPaths);
+                            ShowErrorDialog("Invalid project folder selected!", exeDir, workingDir, searchedPaths, selected);
                             return;
                         }
                     }
                     else
                     {
-                        ShowErrorDialog("Could not locate RepoLens project directory.", exeDir, workingDir, searchedPaths);
+                        ShowErrorDialog("Could not locate RepoLens project directory.", exeDir, workingDir, searchedPaths, null);
                         return;
                     }
                 }
@@ -118,9 +118,56 @@ namespace RepoLens
 
         static bool IsValidProjectDir(string path)
         {
-            if (string.IsNullOrEmpty(path)) return false;
-            string target = Path.Combine(path, "docker-compose.yml");
-            return File.Exists(target);
+            bool isValid;
+            List<string> results;
+            ValidateProjectDir(path, out results, out isValid);
+            return isValid;
+        }
+
+        static void ValidateProjectDir(string path, out List<string> results, out bool isValid)
+        {
+            results = new List<string>();
+            isValid = true;
+
+            if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+            {
+                results.Add("✘ Root folder directory does not exist.");
+                isValid = false;
+                return;
+            }
+
+            string dockerCompose = Path.Combine(path, "docker-compose.yml");
+            if (File.Exists(dockerCompose))
+            {
+                results.Add("[✔] docker-compose.yml (Found)");
+            }
+            else
+            {
+                results.Add("[✘] docker-compose.yml (Missing)");
+                isValid = false;
+            }
+
+            string backendDir = Path.Combine(path, "titansearch-backend");
+            if (Directory.Exists(backendDir))
+            {
+                results.Add("[✔] titansearch-backend/ (Found)");
+            }
+            else
+            {
+                results.Add("[✘] titansearch-backend/ (Missing)");
+                isValid = false;
+            }
+
+            string frontendDir = Path.Combine(path, "titansearch-frontend");
+            if (Directory.Exists(frontendDir))
+            {
+                results.Add("[✔] titansearch-frontend/ (Found)");
+            }
+            else
+            {
+                results.Add("[✘] titansearch-frontend/ (Missing)");
+                isValid = false;
+            }
         }
 
         static string ReadCachedPath()
@@ -158,15 +205,31 @@ namespace RepoLens
             return Path.Combine(appData, Path.Combine("RepoLens", "launcher.cfg"));
         }
 
-        static void ShowErrorDialog(string title, string exeDir, string workingDir, List<string> searchedPaths)
+        static void ShowErrorDialog(string title, string exeDir, string workingDir, List<string> searchedPaths, string selectedPath)
         {
             string pathsList = string.Join("\n- ", searchedPaths.ToArray());
+            string validationDetails = "";
+
+            if (!string.IsNullOrEmpty(selectedPath))
+            {
+                List<string> checkList;
+                bool isValid;
+                ValidateProjectDir(selectedPath, out checkList, out isValid);
+                validationDetails = string.Format(
+                    "Selected Folder:\n{0}\n\n" +
+                    "Project Validation Checklist:\n{1}\n\n",
+                    selectedPath,
+                    string.Join("\n", checkList.ToArray())
+                );
+            }
+
             string message = string.Format(
                 "{0}\n\n" +
-                "Executable Directory:\n{1}\n\n" +
-                "Current Working Directory:\n{2}\n\n" +
-                "Directories Searched:\n- {3}",
-                title, exeDir, workingDir, pathsList
+                "{1}" +
+                "Executable Directory:\n{2}\n\n" +
+                "Current Working Directory:\n{3}\n\n" +
+                "Directories Searched:\n- {4}",
+                title, validationDetails, exeDir, workingDir, pathsList
             );
             MessageBox.Show(message, "RepoLens Launcher Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
