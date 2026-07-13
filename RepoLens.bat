@@ -22,7 +22,20 @@ if not defined RESOLVED_DIR (
     )
 )
 
-:: 3. Try parent directory of the batch file
+:: 3. Try scanning subdirectories 1 level deep inside the batch directory
+if not defined RESOLVED_DIR (
+    for /d %%d in ("%~dp0*") do (
+        if not defined RESOLVED_DIR (
+            call :ValidateFolder "%%d"
+            if "!FOLDER_VALID!"=="1" (
+                set "RESOLVED_DIR=%%d"
+                echo Auto-detected project folder at: "%%d"
+            )
+        )
+    )
+)
+
+:: 4. Try parent directory of the batch file
 if not defined RESOLVED_DIR (
     set "PARENT_DIR=%~dp0..\"
     call :ValidateFolder "!PARENT_DIR!"
@@ -31,11 +44,18 @@ if not defined RESOLVED_DIR (
     )
 )
 
-:: 4. Prompt user if still not resolved
+:: 5. Prompt user manually if still not resolved
 if not defined RESOLVED_DIR (
-    echo RepoLens project directory was not found automatically.
+    echo ============================================================
+    echo Please specify the ROOT folder of your RepoLens project.
     echo.
-    set /p USER_PATH="Please enter the full path to the RepoLens folder: "
+    echo The folder must contain:
+    echo   - docker-compose.yml
+    echo   - titansearch-backend/ (Directory)
+    echo   - titansearch-frontend/ (Directory)
+    echo ============================================================
+    echo.
+    set /p USER_PATH="Enter the full path to the RepoLens folder: "
     
     :: Remove quotes if entered by user
     set "USER_PATH=!USER_PATH:"=!"
@@ -43,26 +63,47 @@ if not defined RESOLVED_DIR (
     call :ValidateFolder "!USER_PATH!"
     if "!FOLDER_VALID!"=="1" (
         set "RESOLVED_DIR=!USER_PATH!"
-        :: Save to config
         if not exist "%APPDATA%\RepoLens" mkdir "%APPDATA%\RepoLens"
         echo !USER_PATH!>"%CONFIG_FILE%"
     ) else (
-        echo.
-        echo ============================================================
-        echo [ERROR] Invalid project folder selected!
-        echo ============================================================
-        echo Selected Folder: !USER_PATH!
-        echo.
-        echo Project Validation Checklist:
-        echo !DC_STATUS!
-        echo !BE_STATUS!
-        echo !FE_STATUS!
-        echo.
-        echo Executed Dir: %~dp0
-        echo ============================================================
-        echo.
-        pause
-        exit /b 1
+        :: Try scanning subfolders 1 level deep inside the user-entered path
+        set "USER_SUB_FOUND="
+        for /d %%d in ("!USER_PATH!\*") do (
+            if not defined USER_SUB_FOUND (
+                call :ValidateFolder "%%d"
+                if "!FOLDER_VALID!"=="1" (
+                    set "USER_SUB_FOUND=%%d"
+                )
+            )
+        )
+        if defined USER_SUB_FOUND (
+            set "RESOLVED_DIR=!USER_SUB_FOUND!"
+            echo Auto-detected RepoLens project folder inside selected directory at:
+            echo "!USER_SUB_FOUND!"
+            echo.
+            if not exist "%APPDATA%\RepoLens" mkdir "%APPDATA%\RepoLens"
+            echo !USER_SUB_FOUND!>"%CONFIG_FILE%"
+        ) else (
+            echo.
+            echo ============================================================
+            echo [ERROR] Invalid project folder selected!
+            echo ============================================================
+            echo Selected Folder: !USER_PATH!
+            echo.
+            echo Project Validation Checklist:
+            echo !DC_STATUS!
+            echo !BE_STATUS!
+            echo !FE_STATUS!
+            echo.
+            echo Reason:
+            echo At least one required resource is missing. Please select the root project folder.
+            echo.
+            echo Executed Dir: %~dp0
+            echo ============================================================
+            echo.
+            pause
+            exit /b 1
+        )
     )
 )
 

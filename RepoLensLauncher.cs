@@ -17,7 +17,7 @@ namespace RepoLens
             List<string> searchedPaths = new List<string>();
             string resolvedDir = null;
 
-            // 1. Check cached path
+            // 1. Check cached path in launcher.cfg
             string cachedPath = ReadCachedPath();
             if (!string.IsNullOrEmpty(cachedPath))
             {
@@ -28,7 +28,7 @@ namespace RepoLens
                 }
             }
 
-            // 2. Check exe directory
+            // 2. Check current executable directory
             if (resolvedDir == null)
             {
                 searchedPaths.Add(exeDir + " (Executable Directory)");
@@ -38,7 +38,32 @@ namespace RepoLens
                 }
             }
 
-            // 3. Check parent directories of executable
+            // 3. Auto-detect downward from Executable directory (up to depth 3)
+            if (resolvedDir == null)
+            {
+                List<string> detectedProjects = new List<string>();
+                SearchForProjects(exeDir, 3, detectedProjects);
+
+                if (detectedProjects.Count == 1)
+                {
+                    resolvedDir = detectedProjects[0];
+                    SaveCachedPath(resolvedDir);
+                    MessageBox.Show(string.Format("Auto-detected valid RepoLens project root at:\n{0}", resolvedDir), "Project Auto-Detected", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else if (detectedProjects.Count > 1)
+                {
+                    using (ProjectSelectorForm selector = new ProjectSelectorForm(detectedProjects))
+                    {
+                        if (selector.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(selector.SelectedProject))
+                        {
+                            resolvedDir = selector.SelectedProject;
+                            SaveCachedPath(resolvedDir);
+                        }
+                    }
+                }
+            }
+
+            // 4. Check parent directories of executable
             if (resolvedDir == null)
             {
                 string current = exeDir;
@@ -56,12 +81,21 @@ namespace RepoLens
                 }
             }
 
-            // 4. Prompt user if still not found
+            // 5. Prompt user manually with Folder Browser GUI
             if (resolvedDir == null)
             {
                 using (FolderBrowserDialog dialog = new FolderBrowserDialog())
                 {
-                    dialog.Description = "RepoLens project folder containing 'docker-compose.yml' was not found automatically.\n\nPlease select the RepoLens project folder manually:";
+                    dialog.Description = "Please select the ROOT folder of your RepoLens project.\n\n" +
+                                         "The selected folder MUST contain the following files:\n" +
+                                         "  - docker-compose.yml\n" +
+                                         "  - titansearch-backend/ (Directory)\n" +
+                                         "  - titansearch-frontend/ (Directory)\n\n" +
+                                         "Example Folder Structure:\n" +
+                                         "RepoLens/\n" +
+                                         "├── docker-compose.yml\n" +
+                                         "├── titansearch-backend/\n" +
+                                         "└── titansearch-frontend/";
                     dialog.ShowNewFolderButton = false;
 
                     if (dialog.ShowDialog() == DialogResult.OK)
@@ -69,15 +103,40 @@ namespace RepoLens
                         string selected = dialog.SelectedPath;
                         searchedPaths.Add(selected + " (User Selected)");
 
+                        // Direct check
                         if (IsValidProjectDir(selected))
                         {
                             resolvedDir = selected;
-                            SaveCachedPath(selected);
+                            SaveCachedPath(resolvedDir);
                         }
                         else
                         {
-                            ShowErrorDialog("Invalid project folder selected!", exeDir, workingDir, searchedPaths, selected);
-                            return;
+                            // Try scanning downwards from selected folder
+                            List<string> subDetected = new List<string>();
+                            SearchForProjects(selected, 3, subDetected);
+
+                            if (subDetected.Count == 1)
+                            {
+                                resolvedDir = subDetected[0];
+                                SaveCachedPath(resolvedDir);
+                                MessageBox.Show(string.Format("Auto-detected valid RepoLens project root inside selected folder at:\n{0}", resolvedDir), "Project Auto-Detected", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            }
+                            else if (subDetected.Count > 1)
+                            {
+                                using (ProjectSelectorForm selector = new ProjectSelectorForm(subDetected))
+                                {
+                                    if (selector.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(selector.SelectedProject))
+                                    {
+                                        resolvedDir = selector.SelectedProject;
+                                        SaveCachedPath(resolvedDir);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                ShowErrorDialog("Invalid project folder selected!", exeDir, workingDir, searchedPaths, selected);
+                                return;
+                            }
                         }
                     }
                     else
@@ -88,14 +147,14 @@ namespace RepoLens
                 }
             }
 
-            // 5. Check if Docker is running
+            // 6. Check if Docker is running
             if (!IsDockerRunning())
             {
                 MessageBox.Show("Docker Desktop is not running. Please start Docker Desktop and try again.", "Docker Not Running", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // 6. Start services
+            // 7. Start services
             MessageBox.Show(string.Format("Starting RepoLens services via Docker Compose at:\n{0}\n\nThis may take a few seconds...", resolvedDir), "RepoLens Launcher", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             if (!RunDockerCompose(resolvedDir))
@@ -104,7 +163,7 @@ namespace RepoLens
                 return;
             }
 
-            // 7. Wait and open UI
+            // 8. Wait and open UI
             Thread.Sleep(3000);
             try
             {
@@ -170,6 +229,29 @@ namespace RepoLens
             }
         }
 
+        static void SearchForProjects(string path, int depth, List<string> foundRoots)
+        {
+            if (depth <= 0) return;
+            try
+            {
+                if (IsValidProjectDir(path))
+                {
+                    foundRoots.Add(path);
+                    return;
+                }
+
+                foreach (string subDir in Directory.GetDirectories(path))
+                {
+                    string name = Path.GetFileName(subDir);
+                    if (name.StartsWith(".") || name == "node_modules" || name == "bin" || name == "obj" || name == "target")
+                        continue;
+
+                    SearchForProjects(subDir, depth - 1, foundRoots);
+                }
+            }
+            catch { }
+        }
+
         static string ReadCachedPath()
         {
             try
@@ -217,7 +299,8 @@ namespace RepoLens
                 ValidateProjectDir(selectedPath, out checkList, out isValid);
                 validationDetails = string.Format(
                     "Selected Folder:\n{0}\n\n" +
-                    "Project Validation Checklist:\n{1}\n\n",
+                    "Project Validation Checklist:\n{1}\n\n" +
+                    "Reason:\nAt least one required project resource (docker-compose.yml, titansearch-backend/, or titansearch-frontend/) is missing. Please select the root project folder.\n\n",
                     selectedPath,
                     string.Join("\n", checkList.ToArray())
                 );
@@ -283,6 +366,58 @@ namespace RepoLens
             {
                 return false;
             }
+        }
+    }
+
+    public class ProjectSelectorForm : Form
+    {
+        private ListBox listBox;
+        private Button btnOk;
+        public string SelectedProject { get; private set; }
+
+        public ProjectSelectorForm(List<string> options)
+        {
+            this.Text = "Select RepoLens Project Root";
+            this.Size = new System.Drawing.Size(500, 320);
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+
+            Label label = new Label()
+            {
+                Text = "Multiple RepoLens projects were detected. Please select one:",
+                Location = new System.Drawing.Point(15, 15),
+                Size = new System.Drawing.Size(450, 20)
+            };
+            this.Controls.Add(label);
+
+            listBox = new ListBox()
+            {
+                Location = new System.Drawing.Point(15, 45),
+                Size = new System.Drawing.Size(450, 180)
+            };
+            foreach (var opt in options)
+            {
+                listBox.Items.Add(opt);
+            }
+            if (listBox.Items.Count > 0) listBox.SelectedIndex = 0;
+            this.Controls.Add(listBox);
+
+            btnOk = new Button()
+            {
+                Text = "Launch Selected",
+                Location = new System.Drawing.Point(365, 235),
+                Size = new System.Drawing.Size(100, 30),
+                DialogResult = DialogResult.OK
+            };
+            btnOk.Click += (s, e) =>
+            {
+                this.SelectedProject = listBox.SelectedItem as string;
+                this.Close();
+            };
+            this.Controls.Add(btnOk);
+            this.AcceptButton = btnOk;
         }
     }
 }
