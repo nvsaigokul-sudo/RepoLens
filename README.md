@@ -4,6 +4,20 @@ RepoLens is a high-fidelity repository analysis platform that automatically scan
 
 ---
 
+## 🚀 One-Click Windows Launcher
+
+We provide a lightweight, native Windows executable (`RepoLens.exe`) that automatically handles Docker initialization, service bootstrapping, and launches your browser to access the app.
+
+### 📥 Download & Run
+1. **Download the Launcher**: [Click here to download RepoLens.exe](https://github.com/nvsaigokul-sudo/RepoLens/raw/main/RepoLens.exe)
+2. **Setup Credentials**: Make sure your `GITHUB_TOKEN` and `GEMINI_API_KEY` environment variables are set in Windows (Settings -> Environment Variables) or active in your system environment.
+3. **Run**:
+   * Open **Docker Desktop**.
+   * Double-click **`RepoLens.exe`** from your project directory.
+   * The app will spin up and open automatically in your browser at [http://localhost:3000](http://localhost:3000).
+
+---
+
 ## 📁 Repository Structure
 
 ```
