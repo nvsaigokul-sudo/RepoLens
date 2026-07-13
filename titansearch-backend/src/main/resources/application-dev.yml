@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/titansearch
+    url: jdbc:postgresql://localhost:5439/titansearch
     username: titansearch
     password: titansearch
 logging:
