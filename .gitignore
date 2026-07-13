@@ -44,6 +44,5 @@ Desktop.ini
 .env.test.local
 .env.production.local
 
-# Launcher Output Binaries & Zips
-RepoLens.exe
+# Launcher Output Zips
 launcher-resources/frontend.zip
