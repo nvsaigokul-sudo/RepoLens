@@ -85,11 +85,11 @@ export default function FavoritesPage() {
             }} />
           </div>
         ) : error ? (
-          <div className="glass-panel" style={{ color: 'var(--color-danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          <div className="git-card" style={{ color: 'var(--color-danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
             <span>{error}</span>
           </div>
         ) : favorites.length === 0 ? (
-          <div className="glass-panel flex-center" style={{ minHeight: '200px', flexDirection: 'column', color: 'var(--text-muted)' }}>
+          <div className="git-card flex-center" style={{ minHeight: '200px', flexDirection: 'column', color: 'var(--text-secondary)' }}>
             <BookOpen size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
             <span>You haven't saved any repositories to favorites yet.</span>
             <Link to="/" className="btn btn-primary" style={{ marginTop: '20px' }}>Explore Repositories</Link>
@@ -100,7 +100,7 @@ export default function FavoritesPage() {
               <Link
                 key={repo.id}
                 to={`/repository/${repo.fullName}`}
-                className="glass-panel"
+                className="git-card"
                 style={{
                   textDecoration: 'none',
                   color: 'inherit',

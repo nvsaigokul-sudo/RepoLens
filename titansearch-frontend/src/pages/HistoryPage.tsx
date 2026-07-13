@@ -77,11 +77,11 @@ export default function HistoryPage() {
             }} />
           </div>
         ) : error ? (
-          <div className="glass-panel" style={{ color: 'var(--color-danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          <div className="git-card" style={{ color: 'var(--color-danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
             <span>{error}</span>
           </div>
         ) : history.length === 0 ? (
-          <div className="glass-panel flex-center" style={{ minHeight: '200px', flexDirection: 'column', color: 'var(--text-muted)' }}>
+          <div className="git-card flex-center" style={{ minHeight: '200px', flexDirection: 'column', color: 'var(--text-secondary)' }}>
             <Search size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
             <span>No search history found. Try performing some queries on the search page!</span>
           </div>
@@ -90,12 +90,11 @@ export default function HistoryPage() {
             {history.map((item) => (
               <div
                 key={item.id}
-                className="glass-panel"
+                className="git-card"
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center',
-                  background: 'rgba(15, 23, 42, 0.3)'
+                  alignItems: 'center'
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

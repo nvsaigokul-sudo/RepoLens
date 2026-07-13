@@ -19,7 +19,7 @@ interface ArchitectureDiagramProps {
 export default function ArchitectureDiagram({ diagramData }: ArchitectureDiagramProps) {
   if (!diagramData || !diagramData.nodes || diagramData.nodes.length === 0) {
     return (
-      <div className="glass-panel flex-center" style={{ minHeight: '200px', flexDirection: 'column', color: 'var(--text-muted)' }}>
+      <div className="git-card flex-center" style={{ minHeight: '200px', flexDirection: 'column', color: 'var(--text-muted)' }}>
         <span>No architecture data available for this repository.</span>
       </div>
     );
@@ -85,7 +85,7 @@ export default function ArchitectureDiagram({ diagramData }: ArchitectureDiagram
   const nodeHeight = 60;
 
   return (
-    <div className="glass-panel" style={{ overflowX: 'auto', padding: '20px' }}>
+    <div className="git-card" style={{ overflowX: 'auto', padding: '20px' }}>
       <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ minWidth: '700px' }}>
         <defs>
           {/* Gradients */}

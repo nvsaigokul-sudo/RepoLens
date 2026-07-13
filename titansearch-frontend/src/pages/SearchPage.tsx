@@ -80,7 +80,7 @@ export default function SearchPage() {
       <main style={{ maxWidth: '1000px', margin: '40px auto', padding: '0 24px' }}>
         
         {/* Search Bar & Filters Form */}
-        <form onSubmit={handleSearchSubmit} className="glass-panel" style={{ marginBottom: '30px' }}>
+        <form onSubmit={handleSearchSubmit} className="git-card" style={{ marginBottom: '30px' }}>
           <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <input
@@ -175,7 +175,7 @@ export default function SearchPage() {
         )}
 
         {error && (
-          <div className="glass-panel" style={{ color: 'var(--color-danger)', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="git-card" style={{ color: 'var(--color-danger)', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)' }}>
             <span>{error}</span>
           </div>
         )}
@@ -184,14 +184,14 @@ export default function SearchPage() {
         {!loading && !error && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {results.length === 0 ? (
-              <div className="glass-panel flex-center" style={{ minHeight: '200px', flexDirection: 'column', color: 'var(--text-muted)' }}>
+              <div className="git-card flex-center" style={{ minHeight: '200px', flexDirection: 'column', color: 'var(--text-secondary)' }}>
                 <span>No repositories match your search filters.</span>
               </div>
             ) : (
               results.map((repo) => (
                 <div
                   key={repo.id}
-                  className="glass-panel"
+                  className="git-card"
                   onClick={() => handleRepoClick(repo.fullName)}
                   style={{
                     cursor: 'pointer',
@@ -202,11 +202,11 @@ export default function SearchPage() {
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.borderColor = 'rgba(0, 242, 254, 0.2)';
+                    e.currentTarget.style.borderColor = 'var(--accent-blue)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.borderColor = 'var(--border-glass)';
+                    e.currentTarget.style.borderColor = 'var(--border-default)';
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

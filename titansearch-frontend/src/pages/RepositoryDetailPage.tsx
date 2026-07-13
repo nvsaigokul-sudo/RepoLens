@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  Star, GitFork, BookOpen, Clock, Activity, Award,
+  Star, GitFork, BookOpen, Activity, Award,
   Heart, RefreshCw, Layers, Compass, Cpu, FileText
 } from 'lucide-react';
 import Header from '../components/Header';
@@ -342,7 +342,7 @@ export default function RepositoryDetailPage() {
       <div>
         <Header />
         <div style={{ maxWidth: '800px', margin: '40px auto', padding: '0 24px' }}>
-          <div className="glass-panel" style={{ color: 'var(--color-danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          <div className="git-card" style={{ color: 'var(--color-danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
             <h3>Failed to load repository</h3>
             <p>{error || 'An unexpected error occurred.'}</p>
             <Link to="/" className="btn btn-secondary">Back to Search</Link>
@@ -368,150 +368,158 @@ export default function RepositoryDetailPage() {
   return (
     <div>
       <Header />
-      <div className="glow-spot-1" />
-      <div className="glow-spot-2" />
 
-      {/* GitHub Premium Header block */}
-      <div style={{ background: 'rgba(15, 23, 42, 0.4)', borderBottom: '1px solid var(--border-glass)', padding: '24px 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-          <div>
+      {/* GitHub Repository Header */}
+      <div style={{ background: '#161b22', borderBottom: '1px solid var(--border-default)', padding: '20px 0 0 0' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 32px' }}>
+          
+          {/* Title & Actions Row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <BookOpen size={20} color="var(--text-secondary)" />
-              <span style={{ fontSize: '1.25rem', color: 'var(--accent-indigo)', fontWeight: 500 }}>
-                {owner}
+              <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
+                <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" fill="currentColor">
+                  <path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 110-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 11-1.072 1.05A2.495 2.495 0 012 11.5v-9zm10.5-1V9h-8c-.356 0-.694.074-1 .208V2.5a1 1 0 011-1h8z"></path>
+                </svg>
+              </div>
+              <span style={{ fontSize: '1.25rem', color: 'var(--accent-blue)', fontWeight: 400 }}>
+                <a href={`https://github.com/` + owner} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>{owner}</a>
               </span>
-              <span style={{ color: 'var(--text-muted)' }}>/</span>
-              <span style={{ fontSize: '1.25rem', color: '#ffffff', fontWeight: 700 }}>
-                {repo}
+              <span style={{ color: 'var(--text-secondary)', fontSize: '1.25rem' }}>/</span>
+              <span style={{ fontSize: '1.25rem', color: 'var(--text-white)', fontWeight: 600 }}>
+                <a href={`https://github.com/${owner}/${repo}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>{repo}</a>
               </span>
-              <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--color-info)', border: '1px solid rgba(59, 130, 246, 0.2)', textTransform: 'none' }}>
-                public
+              <span className="badge" style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-default)', padding: '2px 8px', fontSize: '0.7rem' }}>
+                Public
               </span>
             </div>
 
-            <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '800px' }}>
-              {detail.description || 'No description provided.'}
-            </p>
+            {/* GitHub Actions Counters */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {token && (
+                <>
+                  <button onClick={handleForceSync} className="btn btn-secondary" disabled={syncing} style={{ height: '30px', padding: '0 12px', fontSize: '0.75rem' }}>
+                    <RefreshCw size={12} className={syncing ? 'spin-icon' : ''} /> {syncing ? 'Syncing...' : 'Sync'}
+                  </button>
+                  <button onClick={handleFavoriteToggle} className="btn btn-secondary" style={{ height: '30px', padding: '0 12px', fontSize: '0.75rem', borderColor: isFavorited ? 'var(--color-warning)' : 'var(--border-default)' }}>
+                    <Heart size={12} fill={isFavorited ? 'var(--color-warning)' : 'none'} color={isFavorited ? 'var(--color-warning)' : 'var(--accent-blue)'} />
+                    {isFavorited ? 'Unfavorite' : 'Favorite'}
+                  </button>
+                </>
+              )}
+
+              {/* GitHub Star & Fork Counters */}
+              <div style={{ display: 'flex', border: '1px solid var(--border-default)', borderRadius: '6px', height: '30px', overflow: 'hidden' }}>
+                <div style={{ background: '#21262d', padding: '0 10px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                  <Star size={12} /> Star
+                </div>
+                <div style={{ background: '#161b22', borderLeft: '1px solid var(--border-default)', padding: '0 10px', display: 'flex', alignItems: 'center', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-white)' }}>
+                  {detail.stars.toLocaleString()}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', border: '1px solid var(--border-default)', borderRadius: '6px', height: '30px', overflow: 'hidden' }}>
+                <div style={{ background: '#21262d', padding: '0 10px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                  <GitFork size={12} /> Fork
+                </div>
+                <div style={{ background: '#161b22', borderLeft: '1px solid var(--border-default)', padding: '0 10px', display: 'flex', alignItems: 'center', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-white)' }}>
+                  {detail.forks.toLocaleString()}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
-            {token && (
-              <>
-                <button onClick={handleForceSync} className="btn btn-secondary" disabled={syncing}>
-                  <RefreshCw size={14} className={syncing ? 'spin-icon' : ''} /> {syncing ? 'Syncing...' : 'Force Sync'}
+          <p style={{ margin: '0 0 16px 0', color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '900px', lineHeight: '1.5' }}>
+            {detail.description || 'No description, website, or topics provided.'}
+          </p>
+
+          {/* Navigation Tabs (GitHub Identical Layout) */}
+          <div style={{ display: 'flex', overflowX: 'auto', gap: '4px', marginTop: '10px' }}>
+            {[
+              { id: 'overview', label: 'Overview', icon: BookOpen },
+              { id: 'tech-stack', label: 'Tech Stack', icon: Cpu },
+              { id: 'ai-summary', label: 'AI Summary', icon: FileText, authRequired: true },
+              { id: 'health-score', label: 'Health Score', icon: Activity },
+              { id: 'architecture', label: 'Architecture', icon: Layers },
+              { id: 'similar-repos', label: 'Similar Repos', icon: Compass },
+              { id: 'resume-value', label: 'Resume Value', icon: Award, authRequired: true }
+            ].map(tab => {
+              if (tab.authRequired && !token) return null;
+              const Icon = tab.icon;
+              const isSelected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: isSelected ? '2px solid #fd8c73' : '2px solid transparent',
+                    color: isSelected ? 'var(--text-white)' : 'var(--text-secondary)',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontWeight: isSelected ? 600 : 400,
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                    transition: 'color 0.2s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <Icon size={14} color={isSelected ? 'var(--text-white)' : 'var(--text-secondary)'} />
+                  {tab.label}
                 </button>
-                <button onClick={handleFavoriteToggle} className="btn btn-secondary" style={{ borderColor: isFavorited ? 'var(--color-warning)' : 'var(--border-glass)' }}>
-                  <Heart size={14} fill={isFavorited ? 'var(--color-warning)' : 'none'} color={isFavorited ? 'var(--color-warning)' : 'var(--text-secondary)'} />
-                  {isFavorited ? 'Favorited' : 'Favorite'}
-                </button>
-              </>
-            )}
+              );
+            })}
           </div>
+
         </div>
       </div>
 
-      {/* GitHub Repository Stats Bar */}
-      <div style={{ maxWidth: '1200px', margin: '20px auto 0 auto', padding: '0 24px' }}>
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Star size={16} fill="currentColor" color="#eab308" />
-            <strong>{detail.stars.toLocaleString()}</strong> stars
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <GitFork size={16} color="var(--text-muted)" />
-            <strong>{detail.forks.toLocaleString()}</strong> forks
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Activity size={16} color="var(--text-muted)" />
-            <strong>{detail.openIssues.toLocaleString()}</strong> open issues
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Clock size={16} color="var(--text-muted)" />
-            pushed at <strong>{new Date(detail.repoPushedAt).toLocaleDateString()}</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* Repository Detail Layout */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto 60px auto', padding: '0 24px' }}>
+      {/* Main Body Layout */}
+      <div style={{ maxWidth: '1280px', margin: '30px auto 60px auto', padding: '0 32px' }}>
         
-        {/* Navigation Tabs (GitHub Theme) */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-glass)', marginBottom: '30px', overflowX: 'auto', gap: '8px' }}>
-          {[
-            { id: 'overview', label: 'Overview', icon: BookOpen },
-            { id: 'tech-stack', label: 'Tech Stack', icon: Cpu },
-            { id: 'ai-summary', label: 'AI Summary', icon: FileText, authRequired: true },
-            { id: 'health-score', label: 'Health Score', icon: Activity },
-            { id: 'architecture', label: 'Architecture', icon: Layers },
-            { id: 'similar-repos', label: 'Similar Repos', icon: Compass },
-            { id: 'resume-value', label: 'Resume Value', icon: Award, authRequired: true }
-          ].map(tab => {
-            if (tab.authRequired && !token) return null;
-            const Icon = tab.icon;
-            const isSelected = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: isSelected ? '2px solid var(--accent-teal)' : '2px solid transparent',
-                  color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)',
-                  padding: '12px 16px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontWeight: isSelected ? 600 : 500,
-                  fontSize: '0.9rem',
-                  outline: 'none',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <Icon size={16} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
         {/* Tab Contents */}
         <div>
           {/* 1. OVERVIEW TAB */}
           {activeTab === 'overview' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px', alignItems: 'start' }}>
-              {/* Left Column: README Preview */}
-              <div className="glass-panel">
-                <h3 style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
-                  <FileText size={18} color="var(--accent-teal)" />
-                  README.md Preview
-                </h3>
-                <pre style={{
-                  margin: 0,
-                  padding: '16px',
-                  background: 'rgba(15, 23, 42, 0.4)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-glass)',
-                  color: 'var(--text-secondary)',
-                  fontFamily: 'monospace',
-                  fontSize: '0.85rem',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  maxHeight: '500px',
-                  overflowY: 'auto'
-                }}>
-                  {detail.readmePreview || 'No README file synced for this repository.'}
-                </pre>
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '24px', alignItems: 'start' }}>
+              {/* Left Column: README.md Container */}
+              <div className="readme-box">
+                <div className="readme-header">
+                  <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" fill="currentColor">
+                    <path d="M1.5 1.75a.25.25 0 01.25-.25h8.5a.25.25 0 01.25.25v12.5a.25.25 0 01-.25.25h-8.5a.25.25 0 01-.25-.25V1.75zM0 1.75C0 .784.784 0 1.75 0h8.5C11.216 0 12 .784 12 1.75v12.5c0 .966-.784 1.75-1.75 1.75h-8.5C.784 16 0 15.216 0 14.25V1.75z"></path>
+                    <path d="M5 4.75a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 015 4.75zm0 3a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 015 7.75zm0 3a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z"></path>
+                  </svg>
+                  <span>README.md</span>
+                </div>
+                <div className="readme-body">
+                  <pre style={{
+                    margin: 0,
+                    padding: '20px',
+                    background: '#0d1117',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: '6px',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'monospace',
+                    fontSize: '0.85rem',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    maxHeight: '520px',
+                    overflowY: 'auto'
+                  }}>
+                    {detail.readmePreview || 'No README file synced for this repository.'}
+                  </pre>
+                </div>
               </div>
 
               {/* Right Column: Metadata details & Languages */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {/* Languages Breakdown */}
-                <div className="glass-panel">
-                  <h4 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>Languages</h4>
-                  <div style={{ display: 'flex', height: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '5px', overflow: 'hidden', marginBottom: '16px' }}>
+                <div className="git-card">
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-white)' }}>Languages</h4>
+                  <div style={{ display: 'flex', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden', marginBottom: '16px' }}>
                     {Object.entries(detail.languageBreakdown).map(([lang, pct], idx) => (
                       <div
                         key={idx}
@@ -525,10 +533,10 @@ export default function RepositoryDetailPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {Object.entries(detail.languageBreakdown).map(([lang, pct], idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: langColors[lang] || '#64748b' }} />
-                          <span style={{ fontWeight: 600 }}>{lang}</span>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: langColors[lang] || '#64748b' }} />
+                          <span style={{ fontWeight: 500, color: 'var(--text-white)' }}>{lang}</span>
                         </div>
                         <span style={{ color: 'var(--text-secondary)' }}>{pct.toFixed(1)}%</span>
                       </div>
@@ -537,11 +545,11 @@ export default function RepositoryDetailPage() {
                 </div>
 
                 {/* Topics */}
-                <div className="glass-panel">
-                  <h4 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>Topics</h4>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div className="git-card">
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-white)' }}>Topics</h4>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {detail.topics.length === 0 ? (
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No topics tagged.</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No topics tagged.</span>
                     ) : (
                       detail.topics.map((t, idx) => (
                         <span key={idx} className="badge badge-topic">{t}</span>
@@ -555,7 +563,7 @@ export default function RepositoryDetailPage() {
 
           {/* 2. TECH STACK TAB */}
           {activeTab === 'tech-stack' && (
-            <div className="glass-panel">
+            <div className="git-card">
               <h3 style={{ margin: '0 0 20px 0' }}>Detected Tech Stack</h3>
               {techStack.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Analyzing technology signatures...</p>
@@ -592,7 +600,7 @@ export default function RepositoryDetailPage() {
 
           {/* 3. AI SUMMARY TAB */}
           {activeTab === 'ai-summary' && (
-            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="git-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0 }}>AI Repository Summary</h3>
                 <button
@@ -657,7 +665,7 @@ export default function RepositoryDetailPage() {
               {healthScore ? (
                 <HealthScoreGauge overallScore={healthScore.overallScore} breakdown={healthScore.breakdown} />
               ) : (
-                <div className="glass-panel flex-center" style={{ minHeight: '200px' }}>
+                <div className="git-card flex-center" style={{ minHeight: '200px' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Calculating repository health score...</span>
                 </div>
               )}
@@ -671,7 +679,7 @@ export default function RepositoryDetailPage() {
 
           {/* 6. SIMILAR REPOS TAB */}
           {activeTab === 'similar-repos' && (
-            <div className="glass-panel">
+            <div className="git-card">
               <h3 style={{ margin: '0 0 20px 0' }}>Similar Repositories (Jaccard Index)</h3>
               {similarRepos.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No similar repositories synced yet.</p>
@@ -680,9 +688,8 @@ export default function RepositoryDetailPage() {
                   {similarRepos.map((item) => (
                     <div
                       key={item.id}
-                      className="glass-panel"
+                      className="git-card"
                       style={{
-                        background: 'rgba(15, 23, 42, 0.4)',
                         padding: '16px',
                         display: 'flex',
                         flexDirection: 'column',
@@ -712,7 +719,7 @@ export default function RepositoryDetailPage() {
 
           {/* 7. RESUME VALUE TAB */}
           {activeTab === 'resume-value' && (
-            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="git-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
                 <h3 style={{ margin: 0 }}>Resume & Portfolio Quality Assessment</h3>
                 {resumeAnalysis && (

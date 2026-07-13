@@ -46,7 +46,7 @@ export default function LoginPage() {
       <div className="glow-spot-1" />
       <div className="glow-spot-2" />
 
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px' }}>
+      <div className="git-card" style={{ width: '100%', maxWidth: '400px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '30px' }}>
           <div style={{
             background: 'var(--accent-gradient)',

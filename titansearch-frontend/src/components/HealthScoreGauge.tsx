@@ -26,7 +26,7 @@ export default function HealthScoreGauge({ overallScore, breakdown }: HealthScor
   const scoreColor = getColor(overallScore);
 
   return (
-    <div className="glass-panel" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '30px', alignItems: 'center' }}>
+    <div className="git-card" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '30px', alignItems: 'center' }}>
       
       {/* Radial Gauge */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

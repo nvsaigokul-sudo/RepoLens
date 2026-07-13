@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Heart, History, LogOut, Terminal } from 'lucide-react';
+import { Search, Heart, History, LogOut, GitBranch } from 'lucide-react';
 
 export default function Header() {
   const navigate = useNavigate();
@@ -16,48 +16,71 @@ export default function Header() {
 
   return (
     <header className="app-header">
-      <div className="header-container">
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-          <div style={{
-            background: 'var(--accent-gradient)',
-            borderRadius: '8px',
-            padding: '6px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: 'var(--accent-glow)'
-          }}>
-            <Terminal size={20} color="#0b0f19" />
-          </div>
-          <span style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.025em' }}>
-            <span style={{ color: 'var(--text-primary)' }}>Titan</span>
-            <span style={{ color: 'var(--accent-teal)' }}>Search</span>
-          </span>
-        </Link>
+      <div className="header-container" style={{ maxWidth: '1280px', padding: '12px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+            <div style={{
+              background: '#21262d',
+              border: '1px solid var(--border-default)',
+              borderRadius: '50%',
+              padding: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-white)'
+            }}>
+              <GitBranch size={20} />
+            </div>
+            <span style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-white)', letterSpacing: '-0.015em' }}>
+              RepoLens
+            </span>
+          </Link>
+
+          {token && (
+            <div style={{ position: 'relative', width: '240px', marginLeft: '12px' }} className="header-search-bar">
+              <input
+                type="text"
+                disabled
+                placeholder="Type / to search repositories"
+                style={{
+                  width: '100%',
+                  background: '#0d1117',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: '6px',
+                  color: 'var(--text-secondary)',
+                  padding: '5px 12px 5px 32px',
+                  fontSize: '0.8rem',
+                  cursor: 'not-allowed'
+                }}
+              />
+              <Search size={12} color="var(--text-secondary)" style={{ position: 'absolute', left: '10px', top: '9px' }} />
+            </div>
+          )}
+        </div>
 
         <nav className="nav-links">
           {token ? (
             <>
-              <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Search size={16} /> Search
+              <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>
+                <Search size={15} /> Explore
               </Link>
-              <Link to="/favorites" className={`nav-link ${isActive('/favorites') ? 'active' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Heart size={16} /> Favorites
+              <Link to="/favorites" className={`nav-link ${isActive('/favorites') ? 'active' : ''}`}>
+                <Heart size={15} /> Favorites
               </Link>
-              <Link to="/history" className={`nav-link ${isActive('/history') ? 'active' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <History size={16} /> History
+              <Link to="/history" className={`nav-link ${isActive('/history') ? 'active' : ''}`}>
+                <History size={15} /> History
               </Link>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: '12px', borderLeft: '1px solid var(--border-glass)', paddingLeft: '20px' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{email}</span>
-                <button onClick={handleLogout} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                  <LogOut size={14} /> Sign Out
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: '8px', borderLeft: '1px solid var(--border-default)', paddingLeft: '16px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{email}</span>
+                <button onClick={handleLogout} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>
+                  <LogOut size={12} /> Sign Out
                 </button>
               </div>
             </>
           ) : (
             <>
-              <Link to="/login" className="nav-link">Sign In</Link>
-              <Link to="/register" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>Sign Up</Link>
+              <Link to="/login" className="nav-link" style={{ fontSize: '0.85rem' }}>Sign In</Link>
+              <Link to="/register" className="btn btn-primary" style={{ padding: '5px 12px', fontSize: '0.8rem' }}>Sign Up</Link>
             </>
           )}
         </nav>
