@@ -4,17 +4,26 @@ RepoLens is a high-fidelity repository analysis platform that automatically scan
 
 ---
 
-## 🚀 One-Click Windows Launcher
+## 🚀 One-Click Windows Launcher & Script
 
-We provide a lightweight, native Windows executable (`RepoLens.exe`) that automatically handles Docker initialization, service bootstrapping, and launches your browser to access the app.
+We provide two lightweight options to automatically handle Docker initialization, service bootstrapping, and browser opening:
 
-### 📥 Download & Run
-1. **Download the Launcher**: [Click here to download RepoLens.exe](https://github.com/nvsaigokul-sudo/RepoLens/raw/main/RepoLens.exe)
-2. **Setup Credentials**: Make sure your `GITHUB_TOKEN` and `GEMINI_API_KEY` environment variables are set in Windows (Settings -> Environment Variables) or active in your system environment.
-3. **Run**:
-   * Open **Docker Desktop**.
-   * Double-click **`RepoLens.exe`** from your project directory.
-   * The app will spin up and open automatically in your browser at [http://localhost:3000](http://localhost:3000).
+### Option 1: Compiled Executable (`RepoLens.exe`)
+A native compiled Windows binary with embedded company metadata and invoker manifests to reduce antivirus heuristic false positives.
+* **Download**: [Click here to download RepoLens.exe](https://github.com/nvsaigokul-sudo/RepoLens/raw/main/RepoLens.exe)
+* **Run**:
+  1. Open **Docker Desktop**.
+  2. Double-click **`RepoLens.exe`** in your project directory.
+
+### Option 2: Transparent Batch Script (`RepoLens.bat`) [Recommended for Antivirus-Safe Execution]
+A plain-text batch script that performs the exact same tasks. Since it is a readable script, it is 100% transparent and guaranteed not to trigger binary quarantine blocks from active antivirus engines like McAfee.
+* **Download**: [Click here to download RepoLens.bat](https://github.com/nvsaigokul-sudo/RepoLens/raw/main/RepoLens.bat)
+* **Run**:
+  1. Open **Docker Desktop**.
+  2. Double-click **`RepoLens.bat`** in your project directory.
+
+> [!IMPORTANT]
+> **Setup Credentials**: Make sure your `GITHUB_TOKEN` and `GEMINI_API_KEY` environment variables are set in Windows (Settings -> Environment Variables) or active in your system environment before running either launcher.
 
 ---
 
