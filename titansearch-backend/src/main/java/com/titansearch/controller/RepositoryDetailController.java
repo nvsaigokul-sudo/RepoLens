@@ -12,24 +12,22 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/repositories")
 @RequiredArgsConstructor
-@Tag(name = "Repository Detail", description = "Fetch and sync individual repository detail from GitHub")
+@Tag(name = "Repository Detail", description = "Fetch individual repository detail from GitHub")
 public class RepositoryDetailController {
 
     private final RepositorySearchService repositorySearchService;
-    private final com.titansearch.service.github.GitHubSyncService gitHubSyncService;
 
     @GetMapping("/{owner}/{repo}")
-    @Operation(summary = "Get repository detail (syncs from GitHub if stale or missing)")
+    @Operation(summary = "Get repository detail live")
     public ResponseEntity<ApiEnvelope<RepositoryDetailResponse>> getDetail(
             @PathVariable String owner, @PathVariable String repo) {
         return ResponseEntity.ok(ApiEnvelope.ok(repositorySearchService.getDetail(owner, repo)));
     }
 
     @PostMapping("/{owner}/{repo}/sync")
-    @Operation(summary = "Force re-sync repository metadata and clear cached analysis")
+    @Operation(summary = "Force re-fetch repository metadata")
     public ResponseEntity<ApiEnvelope<RepositoryDetailResponse>> forceSync(
             @PathVariable String owner, @PathVariable String repo) {
-        com.titansearch.entity.Repository repository = gitHubSyncService.syncByOwnerAndName(owner, repo);
         return ResponseEntity.ok(ApiEnvelope.ok(repositorySearchService.getDetail(owner, repo)));
     }
 }

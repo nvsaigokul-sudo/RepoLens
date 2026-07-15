@@ -1,16 +1,15 @@
 package com.titansearch.service.ai;
 
-import com.titansearch.entity.AISummary;
-import com.titansearch.entity.Repository;
-import com.titansearch.entity.TechStackDetection;
-import com.titansearch.repository.AISummaryRepository;
-import com.titansearch.repository.TechStackDetectionRepository;
+import com.titansearch.dto.response.AISummaryPojo;
 import com.titansearch.dto.response.GeminiSummaryDto;
+import com.titansearch.dto.response.RepositoryDetailResponse;
+import com.titansearch.dto.response.TechStackDto;
+import com.titansearch.service.analysis.TechStackDetectorService;
+import com.titansearch.service.cache.CacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -23,88 +22,81 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class AISummaryService {
 
-    private final AISummaryRepository aiSummaryRepository;
-    private final TechStackDetectionRepository techStackDetectionRepository;
+    private final TechStackDetectorService techStackDetectorService;
+    private final CacheService cacheService;
     private final GeminiClient geminiClient;
 
-    private final Set<Long> activeSummaryJobs = ConcurrentHashMap.newKeySet();
-    private static final long STALENESS_LIMIT_DAYS = 30;
+    private final Set<String> activeSummaryJobs = ConcurrentHashMap.newKeySet();
+    private static final long CACHE_TTL_SECONDS = 86400; // 24 hours
 
-    public Optional<AISummary> getSummary(Repository repository) {
-        Long repoId = repository.getId();
-        Optional<AISummary> existing = aiSummaryRepository.findByRepositoryId(repoId);
+    public Optional<AISummaryPojo> getSummary(RepositoryDetailResponse repository) {
+        String key = "ai-summary:" + repository.fullName().toLowerCase();
+        Optional<AISummaryPojo> cached = cacheService.get(key, AISummaryPojo.class);
 
-        if (existing.isPresent()) {
-            AISummary summary = existing.get();
-            if (isStale(summary)) {
-                log.info("AI summary for repository {} is stale, triggering background refresh.", repoId);
-                triggerAsyncGeneration(repository);
-            }
-            return Optional.of(summary);
+        if (cached.isPresent()) {
+            return cached;
         }
 
         triggerAsyncGeneration(repository);
         return Optional.empty();
     }
 
-    public boolean isGenerationPending(Long repoId) {
-        return activeSummaryJobs.contains(repoId);
+    public boolean isGenerationPending(String fullName) {
+        return activeSummaryJobs.contains(fullName.toLowerCase());
     }
 
-    @Transactional
-    public void forceRegenerate(Repository repository) {
+    public void forceRegenerate(RepositoryDetailResponse repository) {
         triggerAsyncGeneration(repository);
     }
 
-    private void triggerAsyncGeneration(Repository repository) {
-        Long repoId = repository.getId();
-        if (activeSummaryJobs.add(repoId)) {
-            log.info("Triggered async AI summary generation for repository: {}", repository.getFullName());
+    private void triggerAsyncGeneration(RepositoryDetailResponse repository) {
+        String name = repository.fullName().toLowerCase();
+        if (activeSummaryJobs.add(name)) {
+            log.info("Triggered async AI summary generation for repository: {}", repository.fullName());
             generateSummaryAsync(repository);
         } else {
-            log.info("AI summary generation for repository {} is already in progress.", repoId);
+            log.info("AI summary generation for repository {} is already in progress.", repository.fullName());
         }
     }
 
     @Async
-    @Transactional
-    public void generateSummaryAsync(Repository repository) {
-        Long repoId = repository.getId();
+    public void generateSummaryAsync(RepositoryDetailResponse repository) {
+        String fullName = repository.fullName();
+        String nameKey = fullName.toLowerCase();
         try {
-            List<String> techStack = techStackDetectionRepository.findByRepositoryId(repoId).stream()
-                    .map(TechStackDetection::getTechnology)
+            String owner = fullName.split("/")[0];
+            String repoName = fullName.split("/")[1];
+
+            List<TechStackDto> detections = techStackDetectorService.detectTechStack(
+                    owner, repoName, repository.primaryLanguage(), repository.description());
+            List<String> techStack = detections.stream()
+                    .map(TechStackDto::technology)
                     .toList();
 
             GeminiSummaryDto dto = geminiClient.generateSummary(
-                    repository.getFullName(),
-                    repository.getDescription() != null ? repository.getDescription() : "",
+                    fullName,
+                    repository.description() != null ? repository.description() : "",
                     techStack,
-                    repository.getReadmePreview() != null ? repository.getReadmePreview() : ""
+                    repository.readmePreview() != null ? repository.readmePreview() : ""
             );
 
-            AISummary summary = aiSummaryRepository.findByRepositoryId(repoId)
-                    .orElseGet(() -> AISummary.builder().repository(repository).build());
+            AISummaryPojo summary = new AISummaryPojo(
+                    System.currentTimeMillis(),
+                    dto.overview(),
+                    dto.mainPurpose(),
+                    dto.architectureSummary(),
+                    dto.keyTechnologies(),
+                    dto.learningValue(),
+                    "gemini-1.5-flash",
+                    Instant.now()
+            );
 
-            summary.setOverview(dto.overview());
-            summary.setMainPurpose(dto.mainPurpose());
-            summary.setArchitectureSummary(dto.architectureSummary());
-            summary.setKeyTechnologies(dto.keyTechnologies());
-            summary.setLearningValue(dto.learningValue());
-            summary.setModelVersion("gemini-1.5-flash");
-            summary.setGeneratedAt(Instant.now());
-
-            aiSummaryRepository.save(summary);
-            log.info("Successfully generated AI summary for repository: {}", repository.getFullName());
+            cacheService.put("ai-summary:" + nameKey, summary, CACHE_TTL_SECONDS);
+            log.info("Successfully generated AI summary for repository: {}", fullName);
         } catch (Exception e) {
-            log.error("Failed to generate AI summary for repository {}: {}", repository.getFullName(), e.getMessage());
+            log.error("Failed to generate AI summary for repository {}: {}", fullName, e.getMessage());
         } finally {
-            activeSummaryJobs.remove(repoId);
+            activeSummaryJobs.remove(nameKey);
         }
-    }
-
-    private boolean isStale(AISummary summary) {
-        return summary.getGeneratedAt()
-                .plus(STALENESS_LIMIT_DAYS, java.time.temporal.ChronoUnit.DAYS)
-                .isBefore(Instant.now());
     }
 }

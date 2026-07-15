@@ -4,17 +4,13 @@ import com.titansearch.dto.request.RepositorySearchRequest;
 import com.titansearch.dto.response.PagedResponse;
 import com.titansearch.dto.response.RepositoryDetailResponse;
 import com.titansearch.dto.response.RepositorySummaryResponse;
-import com.titansearch.entity.Repository;
-import com.titansearch.exception.ResourceNotFoundException;
-import com.titansearch.repository.RepositoryRepository;
-import com.titansearch.service.github.GitHubSyncService;
+import com.titansearch.service.github.GitHubClient;
+import com.titansearch.service.github.GitHubRepoDto;
+import com.titansearch.service.github.GitHubSearchResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,76 +18,80 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RepositorySearchService {
 
-    private final RepositoryRepository repositoryRepository;
-    private final GitHubSyncService gitHubSyncService;
+    private final GitHubClient gitHubClient;
 
-    @Value("${titansearch.cache.detail-ttl-seconds}")
-    private long detailTtlSeconds;
-
-    // Phase 2: searches TitanSearch's own indexed table (populated as users view repos).
-    // A background GitHub-crawling indexer arrives in Phase 3 for cold-start coverage.
     public PagedResponse<RepositorySummaryResponse> search(RepositorySearchRequest request) {
-        var pageable = PageRequest.of(request.page(), request.size(), Sort.by(Sort.Direction.DESC, "stars"));
-        Page<Repository> page = repositoryRepository.search(
-                request.q(), request.language(), request.minStars(), pageable);
+        StringBuilder queryBuilder = new StringBuilder();
+        if (request.q() != null && !request.q().trim().isEmpty()) {
+            queryBuilder.append(request.q().trim());
+        } else {
+            queryBuilder.append("stars:>=0");
+        }
+        if (request.language() != null && !request.language().trim().isEmpty()) {
+            queryBuilder.append(" language:").append(request.language().trim());
+        }
+        if (request.minStars() != null) {
+            queryBuilder.append(" stars:>=").append(request.minStars());
+        }
 
-        List<RepositorySummaryResponse> content = page.getContent().stream()
+        GitHubSearchResponse response = gitHubClient.searchRepositories(
+                queryBuilder.toString(), request.page(), request.size());
+
+        List<RepositorySummaryResponse> content = response.items().stream()
                 .map(this::toSummary)
                 .toList();
 
-        return new PagedResponse<>(content, page.getNumber(), page.getSize(),
-                page.getTotalElements(), page.getTotalPages());
+        long totalElements = response.totalCount();
+        int totalPages = (int) Math.ceil((double) totalElements / request.size());
+
+        return new PagedResponse<>(content, request.page(), request.size(), totalElements, totalPages);
     }
 
     public RepositoryDetailResponse getDetail(String owner, String repoName) {
-        String fullName = owner + "/" + repoName;
-        Repository repo = repositoryRepository.findByFullNameIgnoreCase(fullName)
-                .orElse(null);
+        GitHubRepoDto dto = gitHubClient.getRepository(owner, repoName);
 
-        if (repo == null || gitHubSyncService.isStale(repo, detailTtlSeconds)) {
-            repo = gitHubSyncService.syncByOwnerAndName(owner, repoName);
+        Map<String, Long> langs = gitHubClient.getLanguages(owner, repoName);
+        long totalBytes = langs.values().stream().mapToLong(Long::longValue).sum();
+        Map<String, Double> languageBreakdown = new HashMap<>();
+        if (totalBytes > 0) {
+            for (Map.Entry<String, Long> entry : langs.entrySet()) {
+                double pct = (double) entry.getValue() * 100.0 / totalBytes;
+                languageBreakdown.put(entry.getKey(), Math.round(pct * 100.0) / 100.0);
+            }
         }
 
-        if (repo == null) {
-            throw new ResourceNotFoundException("Repository not found: " + fullName);
+        String readme = gitHubClient.getRawFileContent(owner, repoName, "README.md");
+        if (readme == null || readme.trim().isEmpty()) {
+            readme = gitHubClient.getRawFileContent(owner, repoName, "readme.md");
         }
 
-        return toDetail(repo);
-    }
-
-    private RepositorySummaryResponse toSummary(Repository repo) {
-        return new RepositorySummaryResponse(
-                repo.getId(),
-                repo.getFullName(),
-                repo.getOwner(),
-                repo.getDescription(),
-                repo.getStars(),
-                repo.getForks(),
-                repo.getTopics().stream().map(t -> t.getTopic()).toList(),
-                repo.getRepoPushedAt()
+        return new RepositoryDetailResponse(
+                dto.id(),
+                dto.fullName(),
+                dto.owner() != null ? dto.owner().login() : owner,
+                dto.description(),
+                dto.stars() != null ? dto.stars() : 0,
+                dto.forks() != null ? dto.forks() : 0,
+                dto.openIssues() != null ? dto.openIssues() : 0,
+                dto.language(),
+                readme,
+                dto.topics() != null ? dto.topics() : List.of(),
+                languageBreakdown,
+                dto.createdAt(),
+                dto.pushedAt()
         );
     }
 
-    private RepositoryDetailResponse toDetail(Repository repo) {
-        Map<String, Double> languageBreakdown = repo.getLanguages().stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        l -> l.getLanguage(),
-                        l -> l.getPercentage() != null ? l.getPercentage().doubleValue() : 0.0));
-
-        return new RepositoryDetailResponse(
-                repo.getId(),
-                repo.getFullName(),
-                repo.getOwner(),
-                repo.getDescription(),
-                repo.getStars(),
-                repo.getForks(),
-                repo.getOpenIssues(),
-                repo.getPrimaryLanguage(),
-                repo.getReadmePreview(),
-                repo.getTopics().stream().map(t -> t.getTopic()).toList(),
-                languageBreakdown,
-                repo.getRepoCreatedAt(),
-                repo.getRepoPushedAt()
+    private RepositorySummaryResponse toSummary(GitHubRepoDto dto) {
+        return new RepositorySummaryResponse(
+                dto.id(),
+                dto.fullName(),
+                dto.owner() != null ? dto.owner().login() : "",
+                dto.description(),
+                dto.stars() != null ? dto.stars() : 0,
+                dto.forks() != null ? dto.forks() : 0,
+                dto.topics() != null ? dto.topics() : List.of(),
+                dto.pushedAt()
         );
     }
 }

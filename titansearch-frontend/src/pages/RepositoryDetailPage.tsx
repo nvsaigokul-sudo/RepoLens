@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Star, GitFork, BookOpen, Activity, Award,
-  Heart, RefreshCw, Layers, Compass, Cpu, FileText
+  RefreshCw, Layers, Compass, Cpu, FileText
 } from 'lucide-react';
 import Header from '../components/Header';
 import HealthScoreGauge from '../components/HealthScoreGauge';
@@ -77,7 +77,6 @@ export default function RepositoryDetailPage() {
   
   // Data states
   const [detail, setDetail] = useState<RepoDetail | null>(null);
-  const [isFavorited, setIsFavorited] = useState(false);
   const [techStack, setTechStack] = useState<any[]>([]);
   const [healthScore, setHealthScore] = useState<HealthScoreData | null>(null);
   const [architecture, setArchitecture] = useState<any>(null);
@@ -91,54 +90,16 @@ export default function RepositoryDetailPage() {
   const [regeneratingSummary, setRegeneratingSummary] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  const token = localStorage.getItem('accessToken');
-
   const fetchDetail = async () => {
     try {
       const response = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}`);
       const json = await response.json();
       if (!response.ok) throw new Error(json.error?.message || 'Failed to fetch details');
       setDetail(json.data);
-      
-      // Check if favorited
-      if (token) {
-        checkFavoriteStatus(json.data.id);
-      }
     } catch (err: any) {
       setError(err.message || 'Failed to load repository detail');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const checkFavoriteStatus = async (repoId: number) => {
-    try {
-      const res = await fetch(`http://localhost:8080/api/v1/favorites`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const json = await res.json();
-      if (res.ok) {
-        const favorited = json.data.some((f: any) => f.id === repoId);
-        setIsFavorited(favorited);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleFavoriteToggle = async () => {
-    if (!detail) return;
-    try {
-      const method = isFavorited ? 'DELETE' : 'POST';
-      const res = await fetch(`http://localhost:8080/api/v1/favorites/${detail.id}`, {
-        method,
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setIsFavorited(!isFavorited);
-      }
-    } catch (e) {
-      console.error(e);
     }
   };
 
@@ -188,11 +149,8 @@ export default function RepositoryDetailPage() {
 
   // 5. Fetch AI Summary (with Async Polling)
   const fetchAiSummary = async () => {
-    if (!token) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/ai-summary`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/ai-summary`);
       const json = await res.json();
       
       if (res.status === 202 || (json.error && json.error.code === 'PENDING')) {
@@ -211,8 +169,7 @@ export default function RepositoryDetailPage() {
     setRegeneratingSummary(true);
     try {
       const res = await fetch(`http://localhost:8080/api/v1/ai-summary/regenerate?owner=${owner}&repo=${repo}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        method: 'POST'
       });
       const json = await res.json();
       if (!res.ok) {
@@ -229,11 +186,9 @@ export default function RepositoryDetailPage() {
 
   // 6. Fetch Resume Analysis (with Async Polling)
   const triggerResumeAnalysis = async () => {
-    if (!token) return;
     try {
       const res = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/resume-analysis`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        method: 'POST'
       });
       const json = await res.json();
       
@@ -254,8 +209,7 @@ export default function RepositoryDetailPage() {
     setSyncing(true);
     try {
       const res = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/sync`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        method: 'POST'
       });
       if (res.ok) {
         fetchDetail();
@@ -395,17 +349,9 @@ export default function RepositoryDetailPage() {
 
             {/* GitHub Actions Counters */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {token && (
-                <>
-                  <button onClick={handleForceSync} className="btn btn-secondary" disabled={syncing} style={{ height: '30px', padding: '0 12px', fontSize: '0.75rem' }}>
-                    <RefreshCw size={12} className={syncing ? 'spin-icon' : ''} /> {syncing ? 'Syncing...' : 'Sync'}
-                  </button>
-                  <button onClick={handleFavoriteToggle} className="btn btn-secondary" style={{ height: '30px', padding: '0 12px', fontSize: '0.75rem', borderColor: isFavorited ? 'var(--color-warning)' : 'var(--border-default)' }}>
-                    <Heart size={12} fill={isFavorited ? 'var(--color-warning)' : 'none'} color={isFavorited ? 'var(--color-warning)' : 'var(--accent-blue)'} />
-                    {isFavorited ? 'Unfavorite' : 'Favorite'}
-                  </button>
-                </>
-              )}
+              <button onClick={handleForceSync} className="btn btn-secondary" disabled={syncing} style={{ height: '30px', padding: '0 12px', fontSize: '0.75rem' }}>
+                <RefreshCw size={12} className={syncing ? 'spin-icon' : ''} /> {syncing ? 'Syncing...' : 'Sync'}
+              </button>
 
               {/* GitHub Star & Fork Counters */}
               <div style={{ display: 'flex', border: '1px solid var(--border-default)', borderRadius: '6px', height: '30px', overflow: 'hidden' }}>
@@ -437,13 +383,12 @@ export default function RepositoryDetailPage() {
             {[
               { id: 'overview', label: 'Overview', icon: BookOpen },
               { id: 'tech-stack', label: 'Tech Stack', icon: Cpu },
-              { id: 'ai-summary', label: 'AI Summary', icon: FileText, authRequired: true },
+              { id: 'ai-summary', label: 'AI Summary', icon: FileText },
               { id: 'health-score', label: 'Health Score', icon: Activity },
               { id: 'architecture', label: 'Architecture', icon: Layers },
               { id: 'similar-repos', label: 'Similar Repos', icon: Compass },
-              { id: 'resume-value', label: 'Resume Value', icon: Award, authRequired: true }
+              { id: 'resume-value', label: 'Resume Value', icon: Award }
             ].map(tab => {
-              if (tab.authRequired && !token) return null;
               const Icon = tab.icon;
               const isSelected = activeTab === tab.id;
               return (

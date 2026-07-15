@@ -155,7 +155,7 @@ export default function SearchPage() {
         {/* Results Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Showing {totalElements} repository records in database
+            Showing {totalElements} repositories on GitHub
           </span>
         </div>
 
@@ -170,7 +170,7 @@ export default function SearchPage() {
               borderRadius: '50%',
               animation: 'spin 1s linear infinite'
             }} />
-            <span style={{ color: 'var(--text-secondary)' }}>Searching repository database...</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Searching GitHub...</span>
           </div>
         )}
 

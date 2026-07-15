@@ -1,17 +1,15 @@
 package com.titansearch.service.recommendation;
 
-import com.titansearch.entity.Repository;
-import com.titansearch.entity.SimilarRepository;
-import com.titansearch.entity.TechStackDetection;
-import com.titansearch.repository.RepositoryRepository;
-import com.titansearch.repository.SimilarRepositoryRepository;
-import com.titansearch.repository.TechStackDetectionRepository;
+import com.titansearch.dto.response.RepositoryDetailResponse;
+import com.titansearch.dto.response.TechStackDto;
+import com.titansearch.service.analysis.TechStackDetectorService;
+import com.titansearch.service.github.GitHubClient;
+import com.titansearch.service.github.GitHubRepoDto;
+import com.titansearch.service.github.GitHubSearchResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.*;
 
 @Service
@@ -19,73 +17,72 @@ import java.util.*;
 @Slf4j
 public class SimilarityRecommendationService {
 
-    private final RepositoryRepository repositoryRepository;
-    private final TechStackDetectionRepository techStackDetectionRepository;
-    private final SimilarRepositoryRepository similarRepositoryRepository;
+    private final GitHubClient gitHubClient;
+    private final TechStackDetectorService techStackDetectorService;
 
-    @Transactional
-    public List<SimilarRepository> calculateAndSaveSimilar(Repository repository) {
-        // Clear old recommendations
-        similarRepositoryRepository.deleteByRepositoryId(repository.getId());
+    public List<Map<String, Object>> getSimilarRepositories(RepositoryDetailResponse target) {
+        List<Map<String, Object>> recommendations = new ArrayList<>();
 
-        List<Repository> allRepos = repositoryRepository.findAll();
-        List<SimilarRepository> recommendations = new ArrayList<>();
-
-        Map<String, Double> featuresA = getFeatures(repository);
+        List<TechStackDto> targetDetections = techStackDetectorService.detectTechStack(
+                target.owner(), target.fullName().split("/")[1], target.primaryLanguage(), target.description());
+        Map<String, Double> featuresA = getFeatures(target.topics(), targetDetections);
         if (featuresA.isEmpty()) {
             return recommendations;
         }
 
-        for (Repository other : allRepos) {
-            if (other.getId().equals(repository.getId())) {
+        String query = "language:" + (target.primaryLanguage() != null ? target.primaryLanguage() : "Java") + " stars:>=50";
+        GitHubSearchResponse response;
+        try {
+            response = gitHubClient.searchRepositories(query, 0, 15);
+        } catch (Exception e) {
+            log.error("Failed to fetch similar repo candidates: {}", e.getMessage());
+            return recommendations;
+        }
+
+        for (GitHubRepoDto candidate : response.items()) {
+            if (candidate.fullName().equalsIgnoreCase(target.fullName())) {
                 continue;
             }
 
-            Map<String, Double> featuresB = getFeatures(other);
+            String candOwner = candidate.fullName().split("/")[0];
+            String candName = candidate.fullName().split("/")[1];
+            List<TechStackDto> candDetections = techStackDetectorService.detectTechStack(
+                    candOwner, candName, candidate.language(), candidate.description());
+
+            Map<String, Double> featuresB = getFeatures(candidate.topics(), candDetections);
             double similarity = calculateWeightedJaccard(featuresA, featuresB);
 
-            if (similarity > 0.01) { // Threshold to consider similar
-                SimilarRepository rec = SimilarRepository.builder()
-                        .repository(repository)
-                        .similarRepository(other)
-                        .similarityScore(BigDecimal.valueOf(similarity))
-                        .reason(generateReason(featuresA, featuresB))
-                        .build();
-                recommendations.add(rec);
+            if (similarity > 0.01) {
+                recommendations.add(Map.of(
+                        "id", candidate.id(),
+                        "fullName", candidate.fullName(),
+                        "owner", candOwner,
+                        "description", candidate.description() != null ? candidate.description() : "",
+                        "stars", candidate.stars() != null ? candidate.stars() : 0,
+                        "forks", candidate.forks() != null ? candidate.forks() : 0,
+                        "primaryLanguage", candidate.language() != null ? candidate.language() : "",
+                        "similarityScore", Math.round(similarity * 100.0) / 100.0,
+                        "reason", generateReason(featuresA, featuresB)
+                ));
             }
         }
 
-        // Sort by score desc, limit to top 5
-        recommendations.sort((r1, r2) -> r2.getSimilarityScore().compareTo(r1.getSimilarityScore()));
-        List<SimilarRepository> topRecs = recommendations.stream().limit(5).toList();
-
-        return similarRepositoryRepository.saveAll(topRecs);
+        recommendations.sort((r1, r2) -> Double.compare((double) r2.get("similarityScore"), (double) r1.get("similarityScore")));
+        return recommendations.stream().limit(5).toList();
     }
 
-    public List<SimilarRepository> getSimilarRepositories(Repository repository) {
-        List<SimilarRepository> recs = similarRepositoryRepository.findByRepositoryIdOrderBySimilarityScoreDesc(repository.getId());
-        if (recs.isEmpty()) {
-            return calculateAndSaveSimilar(repository);
-        }
-        return recs;
-    }
-
-    private Map<String, Double> getFeatures(Repository repo) {
+    private Map<String, Double> getFeatures(List<String> topics, List<TechStackDto> detections) {
         Map<String, Double> features = new HashMap<>();
-
-        // Add topics (weight 1.0)
-        if (repo.getTopics() != null) {
-            for (var t : repo.getTopics()) {
-                features.put(t.getTopic().toLowerCase(), 1.0);
+        if (topics != null) {
+            for (String t : topics) {
+                features.put(t.toLowerCase(), 1.0);
             }
         }
-
-        // Add tech stack detections (weight 2.0, overwriting topic weight if duplicate)
-        List<TechStackDetection> detections = techStackDetectionRepository.findByRepositoryId(repo.getId());
-        for (TechStackDetection d : detections) {
-            features.put(d.getTechnology().toLowerCase(), 2.0);
+        if (detections != null) {
+            for (TechStackDto d : detections) {
+                features.put(d.technology().toLowerCase(), 2.0);
+            }
         }
-
         return features;
     }
 
@@ -115,7 +112,6 @@ public class SimilarityRecommendationService {
         List<String> common = new ArrayList<>();
         for (String key : featuresA.keySet()) {
             if (featuresB.containsKey(key)) {
-                // Capitalize key for readability
                 common.add(key.substring(0, 1).toUpperCase() + key.substring(1));
             }
         }

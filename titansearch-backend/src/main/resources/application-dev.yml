@@ -1,8 +1,3 @@
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5439/titansearch
-    username: titansearch
-    password: titansearch
 logging:
   level:
     com.titansearch: DEBUG

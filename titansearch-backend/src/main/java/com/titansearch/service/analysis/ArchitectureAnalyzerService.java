@@ -1,16 +1,11 @@
 package com.titansearch.service.analysis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.titansearch.entity.ArchitectureDiagram;
-import com.titansearch.entity.Repository;
-import com.titansearch.entity.TechStackDetection;
-import com.titansearch.repository.ArchitectureDiagramRepository;
+import com.titansearch.dto.response.TechStackDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,60 +16,42 @@ import java.util.Map;
 @Slf4j
 public class ArchitectureAnalyzerService {
 
-    private final ArchitectureDiagramRepository architectureDiagramRepository;
     private final ObjectMapper objectMapper;
 
-    @Transactional
-    public ArchitectureDiagram analyzeAndSave(Repository repository, List<TechStackDetection> detections) {
-        String diagramJson = generateDiagramJson(detections);
-
-        ArchitectureDiagram diagram = architectureDiagramRepository.findByRepositoryId(repository.getId())
-                .orElseGet(() -> ArchitectureDiagram.builder().repository(repository).build());
-
-        diagram.setDiagramJson(diagramJson);
-        diagram.setDiagramType("LAYERED");
-        diagram.setGeneratedAt(Instant.now());
-
-        return architectureDiagramRepository.save(diagram);
-    }
-
-    private String generateDiagramJson(List<TechStackDetection> detections) {
+    public Map<String, Object> analyzeArchitecture(List<TechStackDto> detections) {
         List<Map<String, String>> nodes = new ArrayList<>();
         List<Map<String, String>> edges = new ArrayList<>();
 
-        // Group detections by category
         String frontendTech = null;
         String backendTech = null;
         String databaseTech = null;
         String cacheTech = null;
         String infraTech = null;
 
-        for (TechStackDetection d : detections) {
-            String tech = d.getTechnology();
-            switch (d.getCategory()) {
-                case FRONTEND -> frontendTech = tech;
-                case BACKEND -> {
+        for (TechStackDto d : detections) {
+            String tech = d.technology();
+            switch (d.category()) {
+                case "FRONTEND" -> frontendTech = tech;
+                case "BACKEND" -> {
                     if (backendTech == null || !"Java".equals(backendTech) && !"Python".equals(backendTech) && !"Node.js".equals(backendTech)) {
-                        backendTech = tech; // Prefer framework (Spring Boot, Express, Django) over raw language
+                        backendTech = tech;
                     }
                 }
-                case DATABASE -> {
+                case "DATABASE" -> {
                     if ("Redis".equalsIgnoreCase(tech)) {
                         cacheTech = tech;
                     } else {
                         databaseTech = tech;
                     }
                 }
-                case INFRA -> infraTech = tech;
+                case "INFRA" -> infraTech = tech;
             }
         }
 
-        // Fallbacks based on primaryLanguage
         if (frontendTech == null && backendTech == null) {
             backendTech = "Backend Service";
         }
 
-        // Add nodes
         if (frontendTech != null) {
             nodes.add(createNode("frontend", frontendTech + " App", "FRONTEND"));
         }
@@ -91,7 +68,6 @@ public class ArchitectureAnalyzerService {
             nodes.add(createNode("infra", infraTech + " Host", "INFRA"));
         }
 
-        // Add edges
         if (frontendTech != null && backendTech != null) {
             edges.add(createEdge("frontend", "backend"));
         }
@@ -114,12 +90,7 @@ public class ArchitectureAnalyzerService {
         diagram.put("nodes", nodes);
         diagram.put("edges", edges);
 
-        try {
-            return objectMapper.writeValueAsString(diagram);
-        } catch (Exception e) {
-            log.error("Failed to serialize architecture diagram JSON: {}", e.getMessage());
-            return "{\"nodes\":[],\"edges\":[]}";
-        }
+        return diagram;
     }
 
     private Map<String, String> createNode(String id, String label, String type) {

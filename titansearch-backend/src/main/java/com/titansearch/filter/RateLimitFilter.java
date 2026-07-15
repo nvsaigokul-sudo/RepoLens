@@ -11,8 +11,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -31,11 +29,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        boolean isAuthenticated = auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal());
-
-        // Resolve key and bucket
-        String clientKey = isAuthenticated ? auth.getName() : request.getRemoteAddr();
+        String clientKey = request.getRemoteAddr();
 
         // Check if it's the AI regeneration endpoint (rate-limited to 5/hour)
         if (path.contains("/ai-summary/regenerate")) {
@@ -48,7 +42,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         // Apply general limit
-        Bucket generalBucket = rateLimitConfig.resolveGeneralBucket(clientKey, isAuthenticated);
+        Bucket generalBucket = rateLimitConfig.resolveGeneralBucket(clientKey, false);
         if (!generalBucket.tryConsume(1)) {
             sendErrorResponse(response, "TOO_MANY_REQUESTS", "Rate limit exceeded. Please try again later.");
             return;

@@ -1,46 +1,46 @@
 package com.titansearch.service.cache;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class CacheService {
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
+
+    private record CacheEntry(Object value, long expiresAt) {
+        public boolean isExpired() {
+            return System.currentTimeMillis() > expiresAt;
+        }
+    }
 
     public <T> Optional<T> get(String key, Class<T> type) {
+        CacheEntry entry = cache.get(key);
+        if (entry == null) {
+            return Optional.empty();
+        }
+        if (entry.isExpired()) {
+            cache.remove(key);
+            return Optional.empty();
+        }
         try {
-            Object val = redisTemplate.opsForValue().get(key);
-            if (val == null) {
-                return Optional.empty();
-            }
-            return Optional.of(type.cast(val));
+            return Optional.of(type.cast(entry.value()));
         } catch (Exception e) {
-            log.error("Failed to read from Redis cache for key={}: {}", key, e.getMessage());
+            log.error("Failed to cast cache value for key={}: {}", key, e.getMessage());
             return Optional.empty();
         }
     }
 
     public void put(String key, Object value, long ttlSeconds) {
-        try {
-            redisTemplate.opsForValue().set(key, value, ttlSeconds, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            log.error("Failed to write to Redis cache for key={}: {}", key, e.getMessage());
-        }
+        long expiresAt = System.currentTimeMillis() + (ttlSeconds * 1000);
+        cache.put(key, new CacheEntry(value, expiresAt));
     }
 
     public void evict(String key) {
-        try {
-            redisTemplate.delete(key);
-        } catch (Exception e) {
-            log.error("Failed to evict Redis cache key={}: {}", key, e.getMessage());
-        }
+        cache.remove(key);
     }
 }

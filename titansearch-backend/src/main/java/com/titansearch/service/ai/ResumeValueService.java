@@ -1,20 +1,17 @@
 package com.titansearch.service.ai;
 
-import com.titansearch.entity.HealthScore;
-import com.titansearch.entity.Repository;
-import com.titansearch.entity.ResumeAnalysis;
-import com.titansearch.entity.TechStackDetection;
-import com.titansearch.entity.User;
-import com.titansearch.repository.HealthScoreRepository;
-import com.titansearch.repository.ResumeAnalysisRepository;
-import com.titansearch.repository.TechStackDetectionRepository;
-import com.titansearch.service.analysis.HealthScoreService;
 import com.titansearch.dto.response.GeminiResumeAnalysisDto;
+import com.titansearch.dto.response.HealthScoreResponse;
+import com.titansearch.dto.response.RepositoryDetailResponse;
+import com.titansearch.dto.response.ResumeAnalysisPojo;
+import com.titansearch.dto.response.TechStackDto;
+import com.titansearch.service.analysis.HealthScoreService;
+import com.titansearch.service.analysis.TechStackDetectorService;
+import com.titansearch.service.cache.CacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -27,83 +24,90 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class ResumeValueService {
 
-    private final ResumeAnalysisRepository resumeAnalysisRepository;
-    private final TechStackDetectionRepository techStackDetectionRepository;
-    private final HealthScoreRepository healthScoreRepository;
+    private final TechStackDetectorService techStackDetectorService;
     private final HealthScoreService healthScoreService;
+    private final CacheService cacheService;
     private final GeminiClient geminiClient;
 
     private final Set<String> activeResumeJobs = ConcurrentHashMap.newKeySet();
+    private static final long CACHE_TTL_SECONDS = 86400; // 24 hours
 
-    public Optional<ResumeAnalysis> getResumeAnalysis(Repository repository, User user) {
-        Long repoId = repository.getId();
-        Long userId = user.getId();
-        
-        Optional<ResumeAnalysis> existing = resumeAnalysisRepository
-                .findFirstByRepositoryIdAndUserIdOrderByGeneratedAtDesc(repoId, userId);
+    public Optional<ResumeAnalysisPojo> getResumeAnalysis(RepositoryDetailResponse repository) {
+        String key = "resume-analysis:" + repository.fullName().toLowerCase();
+        Optional<ResumeAnalysisPojo> cached = cacheService.get(key, ResumeAnalysisPojo.class);
 
-        if (existing.isPresent()) {
-            return existing;
+        if (cached.isPresent()) {
+            return cached;
         }
 
-        triggerAsyncGeneration(repository, user);
+        triggerAsyncGeneration(repository);
         return Optional.empty();
     }
 
-    public boolean isGenerationPending(Long repoId, Long userId) {
-        return activeResumeJobs.contains(repoId + "-" + userId);
+    public boolean isGenerationPending(String fullName) {
+        return activeResumeJobs.contains(fullName.toLowerCase());
     }
 
-    private void triggerAsyncGeneration(Repository repository, User user) {
-        String jobKey = repository.getId() + "-" + user.getId();
-        if (activeResumeJobs.add(jobKey)) {
-            log.info("Triggered async resume evaluation for repository: {} by user: {}", repository.getFullName(), user.getEmail());
-            generateResumeAnalysisAsync(repository, user);
+    private void triggerAsyncGeneration(RepositoryDetailResponse repository) {
+        String name = repository.fullName().toLowerCase();
+        if (activeResumeJobs.add(name)) {
+            log.info("Triggered async resume evaluation for repository: {}", repository.fullName());
+            generateResumeAnalysisAsync(repository);
         } else {
-            log.info("Resume evaluation for repository {} by user {} is already in progress.", repository.getId(), user.getEmail());
+            log.info("Resume evaluation for repository {} is already in progress.", repository.fullName());
         }
     }
 
     @Async
-    @Transactional
-    public void generateResumeAnalysisAsync(Repository repository, User user) {
-        Long repoId = repository.getId();
-        String jobKey = repoId + "-" + user.getId();
+    public void generateResumeAnalysisAsync(RepositoryDetailResponse repository) {
+        String fullName = repository.fullName();
+        String nameKey = fullName.toLowerCase();
         try {
-            // Get tech stack
-            List<String> techStack = techStackDetectionRepository.findByRepositoryId(repoId).stream()
-                    .map(TechStackDetection::getTechnology)
-                    .toList();
+            String owner = fullName.split("/")[0];
+            String repoName = fullName.split("/")[1];
 
-            // Get or calculate health score
-            HealthScore healthScore = healthScoreRepository.findByRepositoryId(repoId)
-                    .orElseGet(() -> healthScoreService.calculateAndSave(repository));
+            List<TechStackDto> detections = techStackDetectorService.detectTechStack(
+                    owner, repoName, repository.primaryLanguage(), repository.description());
+            List<String> techStack = detections.stream().map(TechStackDto::technology).toList();
 
-            GeminiResumeAnalysisDto dto = geminiClient.generateResumeAnalysis(
-                    repository.getFullName(),
-                    repository.getDescription() != null ? repository.getDescription() : "",
-                    techStack,
-                    repository.getReadmePreview() != null ? repository.getReadmePreview() : "",
-                    healthScore.getOverallScore()
+            HealthScoreResponse healthScore = healthScoreService.calculateHealthScore(
+                    owner,
+                    repoName,
+                    repository.readmePreview(),
+                    repository.openIssues(),
+                    repository.stars(),
+                    repository.forks(),
+                    repository.repoCreatedAt()
             );
 
-            ResumeAnalysis analysis = ResumeAnalysis.builder()
-                    .repository(repository)
-                    .user(user)
-                    .resumeScore(dto.resumeScore())
-                    .strengths(dto.strengths())
-                    .weaknesses(dto.weaknesses())
-                    .industryRelevance(dto.industryRelevance())
-                    .suggestedImprovements(dto.suggestedImprovements())
-                    .generatedAt(Instant.now())
-                    .build();
+            GeminiResumeAnalysisDto dto = geminiClient.generateResumeAnalysis(
+                    fullName,
+                    repository.description() != null ? repository.description() : "",
+                    techStack,
+                    repository.readmePreview() != null ? repository.readmePreview() : "",
+                    healthScore.overallScore()
+            );
 
-            resumeAnalysisRepository.save(analysis);
-            log.info("Successfully generated resume analysis for repository: {}", repository.getFullName());
+            int score = dto.resumeScore() != null ? dto.resumeScore().intValue() : 0;
+            List<String> strengths = dto.strengths() != null ? List.of(dto.strengths().split("\n")) : List.of();
+            List<String> weaknesses = dto.weaknesses() != null ? List.of(dto.weaknesses().split("\n")) : List.of();
+            List<String> improvements = dto.suggestedImprovements() != null ? List.of(dto.suggestedImprovements().split("\n")) : List.of();
+
+            ResumeAnalysisPojo analysis = new ResumeAnalysisPojo(
+                    score,
+                    strengths,
+                    weaknesses,
+                    dto.industryRelevance(),
+                    improvements,
+                    Instant.now()
+            );
+
+            cacheService.put("resume-analysis:" + nameKey, analysis, CACHE_TTL_SECONDS);
+            log.info("Successfully generated resume analysis for repository: {}", fullName);
         } catch (Exception e) {
-            log.error("Failed to generate resume analysis for repository {}: {}", repository.getFullName(), e.getMessage());
+            log.error("Failed to generate resume analysis for repository {}: {}", fullName, e.getMessage());
         } finally {
-            activeResumeJobs.remove(jobKey);
+            activeResumeJobs.remove(nameKey);
         }
     }
 }

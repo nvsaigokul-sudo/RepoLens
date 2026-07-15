@@ -3,15 +3,11 @@ package com.titansearch.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.titansearch.dto.response.ApiEnvelope;
-import com.titansearch.entity.ArchitectureDiagram;
-import com.titansearch.entity.Repository;
-import com.titansearch.entity.TechStackDetection;
-import com.titansearch.repository.ArchitectureDiagramRepository;
-import com.titansearch.repository.RepositoryRepository;
-import com.titansearch.repository.TechStackDetectionRepository;
+import com.titansearch.dto.response.RepositoryDetailResponse;
+import com.titansearch.dto.response.TechStackDto;
 import com.titansearch.service.analysis.ArchitectureAnalyzerService;
 import com.titansearch.service.analysis.TechStackDetectorService;
-import com.titansearch.service.github.GitHubSyncService;
+import com.titansearch.service.search.RepositorySearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -19,9 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/repositories")
@@ -30,38 +25,27 @@ import java.util.List;
 @Tag(name = "Architecture Diagram", description = "Generate rule-based system diagrams")
 public class ArchitectureAnalyzerController {
 
-    private final RepositoryRepository repositoryRepository;
-    private final GitHubSyncService gitHubSyncService;
+    private final RepositorySearchService repositorySearchService;
     private final TechStackDetectorService techStackDetectorService;
-    private final TechStackDetectionRepository techStackDetectionRepository;
     private final ArchitectureAnalyzerService architectureAnalyzerService;
-    private final ArchitectureDiagramRepository architectureDiagramRepository;
     private final ObjectMapper objectMapper;
 
     @GetMapping("/{owner}/{repo}/architecture")
-    @Operation(summary = "Get system architecture diagram (re-analyzed if stale > 24h)")
+    @Operation(summary = "Get system architecture diagram (re-analyzed live)")
     public ResponseEntity<ApiEnvelope<JsonNode>> getArchitecture(
             @PathVariable String owner, @PathVariable String repo) {
 
-        String fullName = owner + "/" + repo;
-        Repository repository = repositoryRepository.findByFullNameIgnoreCase(fullName)
-                .orElseGet(() -> gitHubSyncService.syncByOwnerAndName(owner, repo));
+        RepositoryDetailResponse detail = repositorySearchService.getDetail(owner, repo);
+        List<TechStackDto> detections = techStackDetectorService.detectTechStack(
+                owner, repo, detail.primaryLanguage(), detail.description());
 
-        ArchitectureDiagram diagram = architectureDiagramRepository.findByRepositoryId(repository.getId()).orElse(null);
-
-        if (diagram == null || diagram.getGeneratedAt().plus(24, ChronoUnit.HOURS).isBefore(Instant.now())) {
-            List<TechStackDetection> detections = techStackDetectionRepository.findByRepositoryId(repository.getId());
-            if (detections.isEmpty()) {
-                detections = techStackDetectorService.detectAndSave(repository);
-            }
-            diagram = architectureAnalyzerService.analyzeAndSave(repository, detections);
-        }
+        Map<String, Object> diagram = architectureAnalyzerService.analyzeArchitecture(detections);
 
         try {
-            JsonNode jsonNode = objectMapper.readTree(diagram.getDiagramJson());
+            JsonNode jsonNode = objectMapper.valueToTree(diagram);
             return ResponseEntity.ok(ApiEnvelope.ok(jsonNode));
         } catch (Exception e) {
-            log.error("Failed to parse diagram JSON: {}", e.getMessage());
+            log.error("Failed to convert diagram Map: {}", e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }

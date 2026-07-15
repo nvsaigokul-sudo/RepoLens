@@ -3,7 +3,6 @@ package com.titansearch.exception;
 import com.titansearch.dto.response.ApiEnvelope;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -23,12 +22,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiEnvelope<Void>> handleDuplicate(DuplicateResourceException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("DUPLICATE", ex.getMessage())));
-    }
-
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiEnvelope<Void>> handleBadCredentials(BadCredentialsException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("INVALID_CREDENTIALS", ex.getMessage())));
     }
 
     @ExceptionHandler(GitHubApiException.class)
