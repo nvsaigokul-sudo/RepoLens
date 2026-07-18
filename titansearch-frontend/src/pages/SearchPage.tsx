@@ -6,6 +6,8 @@ import {
   Settings, ArrowRight
 } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
 interface RepositorySummary {
   id: number;
   fullName: string;
@@ -44,7 +46,7 @@ export default function SearchPage() {
     params.append('size', '10');
 
     try {
-      const response = await fetch(`http://localhost:8080/api/v1/repositories/search?${params.toString()}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/repositories/search?${params.toString()}`);
       const json = await response.json();
 
       if (!response.ok) {

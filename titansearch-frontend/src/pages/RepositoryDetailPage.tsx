@@ -8,6 +8,8 @@ import {
 import HealthScoreGauge from '../components/HealthScoreGauge';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
 interface RepoDetail {
   id: number;
   fullName: string;
@@ -99,7 +101,7 @@ export default function RepositoryDetailPage() {
 
   const fetchDetail = async () => {
     try {
-      const response = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}`);
       const json = await response.json();
       if (!response.ok) throw new Error(json.error?.message || 'Failed to fetch details');
       setDetail(json.data);
@@ -129,7 +131,7 @@ export default function RepositoryDetailPage() {
   // 1. Fetch Tech Stack
   const fetchTechStack = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/tech-stack`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/tech-stack`);
       const json = await res.json();
       if (res.ok) setTechStack(json.data);
     } catch (e) {
@@ -140,7 +142,7 @@ export default function RepositoryDetailPage() {
   // 2. Fetch Health Score
   const fetchHealthScore = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/health-score`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/health-score`);
       const json = await res.json();
       if (res.ok) setHealthScore(json.data);
     } catch (e) {
@@ -151,7 +153,7 @@ export default function RepositoryDetailPage() {
   // 3. Fetch Architecture
   const fetchArchitecture = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/architecture`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/architecture`);
       const json = await res.json();
       if (res.ok) setArchitecture(json.data);
     } catch (e) {
@@ -162,7 +164,7 @@ export default function RepositoryDetailPage() {
   // 4. Fetch Similar Repos
   const fetchSimilar = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/similar`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/similar`);
       const json = await res.json();
       if (res.ok) setSimilarRepos(json.data);
     } catch (e) {
@@ -175,7 +177,7 @@ export default function RepositoryDetailPage() {
   // 6. Fetch Resume Analysis
   const triggerResumeAnalysis = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/resume-analysis`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/resume-analysis`, {
         method: 'POST'
       });
       const json = await res.json();
@@ -190,7 +192,7 @@ export default function RepositoryDetailPage() {
   const handleForceSync = async () => {
     setSyncing(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/sync`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/sync`, {
         method: 'POST'
       });
       if (res.ok) {
@@ -227,7 +229,7 @@ export default function RepositoryDetailPage() {
     setChatLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:8080/api/v1/repositories/${repoFullName}/chat`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: msgText })
