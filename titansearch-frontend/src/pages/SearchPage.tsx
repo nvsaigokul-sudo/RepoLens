@@ -510,7 +510,8 @@ export default function SearchPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: `1px solid ${theme.border}`, paddingTop: '16px', padding: '0 8px' }}>
             <a
-              href="https://github.com/nvsaigokul-sudo/RepoLens/releases/latest/download/RepoLens.exe"
+              href="/RepoLens.exe"
+              download="RepoLens.exe"
               style={{
                 display: 'flex',
                 alignItems: 'center',

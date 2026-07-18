@@ -53,6 +53,14 @@ Write-Host "`n[Step 4/5] Compiling C# launcher into RepoLens.exe..." -Foreground
   RepoLensLauncher.cs AssemblyInfo.cs
 
 if (Test-Path "RepoLens.exe") {
+    # Copy to frontend public, dist, and backend static resource paths
+    Copy-Item "RepoLens.exe" "titansearch-frontend\public\RepoLens.exe" -Force
+    Copy-Item "RepoLens.exe" "titansearch-frontend\dist\RepoLens.exe" -Force
+    if (!(Test-Path "titansearch-backend\src\main\resources\static")) {
+        New-Item -ItemType Directory -Path "titansearch-backend\src\main\resources\static" | Out-Null
+    }
+    Copy-Item "RepoLens.exe" "titansearch-backend\src\main\resources\static\RepoLens.exe" -Force
+
     Write-Host "`n=========================================" -ForegroundColor Green
     Write-Host "SUCCESS: RepoLens.exe generated successfully!" -ForegroundColor Green
     Write-Host "Size: $(((Get-Item .\RepoLens.exe).Length / 1MB).ToString('F2')) MB" -ForegroundColor Green

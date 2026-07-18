@@ -136,7 +136,8 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 RepoLens includes a native C# launcher and self-contained installer (`RepoLens.exe`) that deploys a local environment.
 
 ### 📥 Download Link
-👉 **[Download RepoLens for Windows v0.2.0](https://github.com/nvsaigokul-sudo/RepoLens/releases/latest/download/RepoLens.exe)**
+- **From Web App Browser (Recommended)**: Download directly from the sidebar of the running website at `/RepoLens.exe`.
+- **From GitHub Releases**: 👉 **[Download RepoLens for Windows v0.2.0](https://github.com/nvsaigokul-sudo/RepoLens/releases/latest/download/RepoLens.exe)**
 
 ### 📋 Release Specifications
 - **Current Version**: `v0.2.0`
