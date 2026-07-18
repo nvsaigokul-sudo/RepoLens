@@ -112,6 +112,32 @@ public class GeminiClient {
         }
     }
 
+    public String generateChatResponse(String repoName, String description, String summaryOverview, String userQuery) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return "This is a local mock response. I'm ready to answer any questions about " + repoName + " once the Gemini API key is configured!";
+        }
+
+        String prompt = """
+            You are RepoLens AI, an expert software developer and repository auditor.
+            You are assisting a developer in understanding the repository: %s.
+            Here is the repository description: %s
+            Here is the repository overview summary: %s
+            
+            Answer the following user question/request in a helpful, technical, yet easy-to-understand manner:
+            "%s"
+            
+            Respond directly using markdown formatting.
+            """.formatted(repoName, description, summaryOverview, userQuery);
+
+        try {
+            String responseBody = callGeminiApi(prompt);
+            return cleanJsonResponse(responseBody);
+        } catch (Exception e) {
+            log.error("Failed to generate chat response: {}", e.getMessage());
+            return "Sorry, I encountered an error: " + e.getMessage();
+        }
+    }
+
     private String callGeminiApi(String prompt) {
         Map<String, Object> requestBody = Map.of(
             "contents", List.of(

@@ -23,6 +23,7 @@ public class AISummaryController {
 
     private final RepositorySearchService repositorySearchService;
     private final AISummaryService aiSummaryService;
+    private final com.titansearch.service.ai.GeminiClient geminiClient;
 
     @GetMapping("/repositories/{owner}/{repo}/ai-summary")
     @Operation(summary = "Get AI summary (returns 202 PENDING if generation is in progress)")
@@ -69,5 +70,31 @@ public class AISummaryController {
                         new ApiEnvelope.ApiMeta(false, 3L),
                         new ApiEnvelope.ApiError("PENDING", "Regeneration started. Please poll detail endpoints shortly.")
                 ));
+    }
+
+    @PostMapping("/repositories/{owner}/{repo}/chat")
+    @Operation(summary = "Chat with RepoLens AI about a repository")
+    public ResponseEntity<ApiEnvelope<?>> chatWithRepo(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @RequestBody Map<String, String> body) {
+
+        String userMessage = body.get("message");
+        if (userMessage == null || userMessage.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiEnvelope.failed(new ApiEnvelope.ApiError("INVALID_INPUT", "Message is required")));
+        }
+
+        RepositoryDetailResponse repository = repositorySearchService.getDetail(owner, repo);
+        Optional<AISummaryPojo> summaryOpt = aiSummaryService.getSummary(repository);
+        String overview = summaryOpt.map(AISummaryPojo::overview).orElse("No summary overview available yet.");
+
+        String aiResponse = geminiClient.generateChatResponse(
+                repository.fullName(),
+                repository.description() != null ? repository.description() : "",
+                overview,
+                userMessage
+        );
+
+        return ResponseEntity.ok(ApiEnvelope.ok(Map.of("response", aiResponse)));
     }
 }
