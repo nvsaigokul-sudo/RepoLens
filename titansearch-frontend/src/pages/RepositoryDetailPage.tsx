@@ -413,9 +413,6 @@ export default function RepositoryDetailPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <Bell size={18} color="#ffffff" style={{ cursor: 'pointer' }} />
-          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#0969da', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '0.75rem', fontWeight: 600 }}>
-            SG
-          </div>
         </div>
       </header>
 
