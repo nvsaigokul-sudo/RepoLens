@@ -4,6 +4,8 @@ RepoLens is a premium, high-performance web and desktop platform designed to dis
 
 This repository is structured as a unified monorepo containing both the React frontend and Spring Boot backend, designed to compile and deploy under a single unified web service.
 
+🌐 **Live Demo:** [https://repolens-7hhs.onrender.com](https://repolens-7hhs.onrender.com)
+
 ---
 
 ## 📖 Table of Contents
