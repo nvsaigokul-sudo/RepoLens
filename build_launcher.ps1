@@ -42,6 +42,7 @@ Write-Host "`n[Step 4/5] Compiling C# launcher into RepoLens.exe..." -Foreground
 & "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" `
   /target:winexe `
   /win32manifest:app.manifest `
+  /win32icon:repolens.ico `
   /out:RepoLens.exe `
   /r:System.Windows.Forms.dll `
   /r:System.Drawing.dll `

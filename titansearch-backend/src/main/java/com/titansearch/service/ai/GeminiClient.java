@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -36,10 +38,22 @@ public class GeminiClient {
         this.objectMapper = objectMapper;
     }
 
+    private String getEffectiveApiKey() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes != null) {
+            String customGeminiKey = attributes.getRequest().getHeader("X-Gemini-Key");
+            if (customGeminiKey != null && !customGeminiKey.isBlank()) {
+                return customGeminiKey;
+            }
+        }
+        return apiKey;
+    }
+
     @CircuitBreaker(name = "geminiClient", fallbackMethod = "generateSummaryFallback")
     @Retry(name = "geminiClient")
     public GeminiSummaryDto generateSummary(String repoName, String description, List<String> techStack, String readmePreview) {
-        if (apiKey == null || apiKey.isBlank()) {
+        String effectiveKey = getEffectiveApiKey();
+        if (effectiveKey == null || effectiveKey.isBlank()) {
             log.warn("Gemini API key is missing. Using fallback mock summary.");
             return generateSummaryFallback(repoName, description, techStack, readmePreview, new IllegalStateException("API key missing"));
         }
@@ -64,7 +78,7 @@ public class GeminiClient {
             Do not include any markdown block fences like ```json, return only the raw JSON.
             """.formatted(repoName, description, String.join(", ", techStack), readmePreview);
 
-        String responseBody = callGeminiApi(prompt);
+        String responseBody = callGeminiApi(prompt, effectiveKey);
         try {
             return objectMapper.readValue(cleanJsonResponse(responseBody), GeminiSummaryDto.class);
         } catch (Exception e) {
@@ -76,7 +90,8 @@ public class GeminiClient {
     @CircuitBreaker(name = "geminiClient", fallbackMethod = "generateResumeAnalysisFallback")
     @Retry(name = "geminiClient")
     public GeminiResumeAnalysisDto generateResumeAnalysis(String repoName, String description, List<String> techStack, String readmePreview, int healthScore) {
-        if (apiKey == null || apiKey.isBlank()) {
+        String effectiveKey = getEffectiveApiKey();
+        if (effectiveKey == null || effectiveKey.isBlank()) {
             log.warn("Gemini API key is missing. Using fallback mock resume analysis.");
             return generateResumeAnalysisFallback(repoName, description, techStack, readmePreview, healthScore, new IllegalStateException("API key missing"));
         }
@@ -103,7 +118,7 @@ public class GeminiClient {
             Do not include any markdown block fences like ```json, return only the raw JSON.
             """.formatted(repoName, description, String.join(", ", techStack), healthScore, readmePreview);
 
-        String responseBody = callGeminiApi(prompt);
+        String responseBody = callGeminiApi(prompt, effectiveKey);
         try {
             return objectMapper.readValue(cleanJsonResponse(responseBody), GeminiResumeAnalysisDto.class);
         } catch (Exception e) {
@@ -113,7 +128,8 @@ public class GeminiClient {
     }
 
     public String generateChatResponse(String repoName, String description, String summaryOverview, String userQuery) {
-        if (apiKey == null || apiKey.isBlank()) {
+        String effectiveKey = getEffectiveApiKey();
+        if (effectiveKey == null || effectiveKey.isBlank()) {
             return "This is a local mock response. I'm ready to answer any questions about " + repoName + " once the Gemini API key is configured!";
         }
 
@@ -130,7 +146,7 @@ public class GeminiClient {
             """.formatted(repoName, description, summaryOverview, userQuery);
 
         try {
-            String responseBody = callGeminiApi(prompt);
+            String responseBody = callGeminiApi(prompt, effectiveKey);
             return cleanJsonResponse(responseBody);
         } catch (Exception e) {
             log.error("Failed to generate chat response: {}", e.getMessage());
@@ -138,7 +154,7 @@ public class GeminiClient {
         }
     }
 
-    private String callGeminiApi(String prompt) {
+    private String callGeminiApi(String prompt, String effectiveKey) {
         Map<String, Object> requestBody = Map.of(
             "contents", List.of(
                 Map.of("parts", List.of(
@@ -153,7 +169,7 @@ public class GeminiClient {
         return restClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/models/{model}:generateContent")
-                        .queryParam("key", apiKey)
+                        .queryParam("key", effectiveKey)
                         .build(model))
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(requestBody)

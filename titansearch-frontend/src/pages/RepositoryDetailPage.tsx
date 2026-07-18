@@ -144,9 +144,22 @@ export default function RepositoryDetailPage() {
     inputBg: darkMode ? '#0d1117' : '#f6f8fa'
   };
 
+  const getAuthHeaders = (custom: HeadersInit = {}): HeadersInit => {
+    const gitToken = localStorage.getItem('repolens-git-token') || '';
+    const geminiKey = localStorage.getItem('repolens-gemini-key') || '';
+    return {
+      'X-GitHub-Token': gitToken,
+      'X-Gemini-Key': geminiKey,
+      ...custom
+    };
+  };
+
   const fetchDetail = async (signal: AbortSignal) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}`, { signal });
+      const response = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}`, {
+        signal,
+        headers: getAuthHeaders()
+      });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error?.message || 'Failed to fetch details');
       setDetail(json.data);
@@ -167,6 +180,10 @@ export default function RepositoryDetailPage() {
     const headers: HeadersInit = {};
     if (etagCache[url]) {
       headers['If-None-Match'] = etagCache[url].etag;
+    }
+    const gitToken = localStorage.getItem('repolens-git-token');
+    if (gitToken) {
+      headers['Authorization'] = `token ${gitToken}`;
     }
 
     try {
@@ -196,7 +213,10 @@ export default function RepositoryDetailPage() {
 
   const fetchTechStack = async (signal: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/tech-stack`, { signal });
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/tech-stack`, {
+        signal,
+        headers: getAuthHeaders()
+      });
       const json = await res.json();
       if (res.ok) {
         setTechStack(json.data);
@@ -211,7 +231,10 @@ export default function RepositoryDetailPage() {
 
   const fetchHealthScore = async (signal: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/health-score`, { signal });
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/health-score`, {
+        signal,
+        headers: getAuthHeaders()
+      });
       const json = await res.json();
       if (res.ok) {
         setHealthScore(json.data);
@@ -226,7 +249,10 @@ export default function RepositoryDetailPage() {
 
   const fetchArchitecture = async (signal: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/architecture`, { signal });
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/architecture`, {
+        signal,
+        headers: getAuthHeaders()
+      });
       const json = await res.json();
       if (res.ok) {
         setArchitecture(json.data);
@@ -241,7 +267,10 @@ export default function RepositoryDetailPage() {
 
   const fetchSimilar = async (signal: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/similar`, { signal });
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/similar`, {
+        signal,
+        headers: getAuthHeaders()
+      });
       const json = await res.json();
       if (res.ok) {
         setSimilarRepos(json.data);
@@ -254,7 +283,10 @@ export default function RepositoryDetailPage() {
 
   const fetchAiSummary = async (signal: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/ai-summary`, { signal });
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/ai-summary`, {
+        signal,
+        headers: getAuthHeaders()
+      });
       const json = await res.json();
       if (res.ok && json.data) {
         setAiSummary(json.data);
@@ -271,7 +303,8 @@ export default function RepositoryDetailPage() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/resume-analysis`, {
         method: 'POST',
-        signal
+        signal,
+        headers: getAuthHeaders()
       });
       const json = await res.json();
       if (res.ok && json.data) {
@@ -291,7 +324,8 @@ export default function RepositoryDetailPage() {
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/sync`, {
-        method: 'POST'
+        method: 'POST',
+        headers: getAuthHeaders()
       });
       if (res.ok) {
         if (abortControllerRef.current) {
@@ -335,7 +369,7 @@ export default function RepositoryDetailPage() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ message: msgText, temperature })
       });
       const json = await response.json();

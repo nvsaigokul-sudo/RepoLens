@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Configuration
 public class RestClientConfig {
@@ -14,11 +16,22 @@ public class RestClientConfig {
         RestClient.Builder builder = RestClient.builder()
                 .baseUrl(baseUrl)
                 .defaultHeader("Accept", "application/vnd.github+json")
-                .defaultHeader("X-GitHub-Api-Version", "2022-11-28");
+                .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
+                .requestInterceptor((request, body, execution) -> {
+                    ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+                    if (attributes != null) {
+                        String customGitToken = attributes.getRequest().getHeader("X-GitHub-Token");
+                        if (customGitToken != null && !customGitToken.isBlank()) {
+                            request.getHeaders().set("Authorization", "Bearer " + customGitToken);
+                            return execution.execute(request, body);
+                        }
+                    }
+                    if (token != null && !token.isBlank()) {
+                        request.getHeaders().set("Authorization", "Bearer " + token);
+                    }
+                    return execution.execute(request, body);
+                });
 
-        if (token != null && !token.isBlank()) {
-            builder.defaultHeader("Authorization", "Bearer " + token);
-        }
         return builder.build();
     }
 }

@@ -74,6 +74,15 @@ export default function SearchPage() {
   const [cacheTtl, setCacheTtl] = useState(() => parseInt(localStorage.getItem('repolens-cache-ttl') || '3600'));
   const [settingsSaved, setSettingsSaved] = useState(false);
 
+  // Onboarding verification checks
+  const [hasKeys, setHasKeys] = useState(() => {
+    const git = localStorage.getItem('repolens-git-token');
+    const gemini = localStorage.getItem('repolens-gemini-key');
+    return !!(git && gemini);
+  });
+  const [gitTokenInput, setGitTokenInput] = useState(gitToken);
+  const [geminiKeyInput, setGeminiKeyInput] = useState(geminiKey);
+
   useEffect(() => {
     localStorage.setItem('repolens-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
@@ -83,6 +92,9 @@ export default function SearchPage() {
     localStorage.setItem('repolens-gemini-key', geminiKey);
     localStorage.setItem('repolens-git-token', gitToken);
     localStorage.setItem('repolens-cache-ttl', cacheTtl.toString());
+    setGitTokenInput(gitToken);
+    setGeminiKeyInput(geminiKey);
+    setHasKeys(!!(gitToken && geminiKey));
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2500);
   };
@@ -122,7 +134,11 @@ export default function SearchPage() {
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/repositories/search?${params.toString()}`, {
-        signal: controller.signal
+        signal: controller.signal,
+        headers: {
+          'X-GitHub-Token': localStorage.getItem('repolens-git-token') || '',
+          'X-Gemini-Key': localStorage.getItem('repolens-gemini-key') || ''
+        }
       });
       const json = await response.json();
 
@@ -190,6 +206,187 @@ export default function SearchPage() {
   const displayedResults = activeMenuTab === 'favorites'
     ? results.filter(r => favorites.includes(r.id))
     : results;
+
+  if (!hasKeys) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: darkMode ? '#0d1117' : '#f6f8fa',
+        color: theme.text,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+        padding: '24px'
+      }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          style={{
+            maxWidth: '480px',
+            width: '100%',
+            background: theme.cardBg,
+            border: `1px solid ${theme.border}`,
+            borderRadius: '12px',
+            padding: '32px',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px'
+          }}
+        >
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <RepoLensLogo color="#0969da" size={48} />
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '8px 0 0 0', letterSpacing: '-0.02em' }}>
+              Welcome to RepoLens
+            </h2>
+            <p style={{ color: theme.textMuted, fontSize: '0.88rem', margin: 0, lineHeight: 1.4 }}>
+              Setup your API credentials to begin scanning, analyzing, and auditing code repositories.
+            </p>
+          </div>
+
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            setError('');
+            try {
+              // 1. Active Key Verification
+              // GitHub Token validation call
+              const gitRes = await fetch('https://api.github.com/user', {
+                headers: { 'Authorization': `token ${gitTokenInput}` }
+              });
+              if (!gitRes.ok) {
+                throw new Error('GitHub Token validation failed. Please ensure the token is active and valid.');
+              }
+
+              // Gemini Key validation call
+              const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKeyInput}`);
+              if (!geminiRes.ok) {
+                throw new Error('Gemini API Key validation failed. Please check your API key.');
+              }
+
+              // 2. Save securely to localStorage
+              localStorage.setItem('repolens-git-token', gitTokenInput);
+              localStorage.setItem('repolens-gemini-key', geminiKeyInput);
+              
+              // 3. Set global variables for dynamic headers
+              setGitToken(gitTokenInput);
+              setGeminiKey(geminiKeyInput);
+              setHasKeys(true);
+            } catch (err: any) {
+              setError(err.message || 'Key validation failed');
+            } finally {
+              setLoading(false);
+            }
+          }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            
+            {/* GitHub Token input */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Key size={12} />
+                <span>GITHUB PERSONAL ACCESS TOKEN</span>
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="ghp_..."
+                value={gitTokenInput}
+                onChange={(e) => setGitTokenInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: theme.inputBg,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '6px',
+                  padding: '10px 12px',
+                  fontSize: '0.85rem',
+                  color: theme.text,
+                  outline: 'none'
+                }}
+              />
+              <span style={{ fontSize: '0.68rem', color: theme.textMuted }}>
+                Required for repository synchronization and folder layout loading.
+              </span>
+            </div>
+
+            {/* Gemini API Key input */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Key size={12} />
+                <span>GEMINI API KEY</span>
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="AIzaSy..."
+                value={geminiKeyInput}
+                onChange={(e) => setGeminiKeyInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: theme.inputBg,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '6px',
+                  padding: '10px 12px',
+                  fontSize: '0.85rem',
+                  color: theme.text,
+                  outline: 'none'
+                }}
+              />
+              <span style={{ fontSize: '0.68rem', color: theme.textMuted }}>
+                Required for AI intelligence overviews, flow charts, and chatbot summaries.
+              </span>
+            </div>
+
+            {/* Error display */}
+            {error && (
+              <div style={{
+                background: darkMode ? 'rgba(207,34,46,0.1)' : '#ffebe9',
+                border: '1px solid #cf222e',
+                color: '#cf222e',
+                fontSize: '0.8rem',
+                padding: '10px 14px',
+                borderRadius: '6px',
+                lineHeight: 1.35
+              }}>
+                {error}
+              </div>
+            )}
+
+            {/* Submit onboarding setup */}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                background: '#0969da',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '12px 0',
+                fontSize: '0.88rem',
+                fontWeight: 600,
+                cursor: loading ? 'default' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                marginTop: '8px',
+                boxShadow: '0 2px 8px rgba(9, 105, 218, 0.25)'
+              }}
+            >
+              {loading ? (
+                <div className="spin-icon" style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #ffffff', borderTopColor: 'transparent' }} />
+              ) : (
+                <span>Validate & Start Onboarding</span>
+              )}
+            </button>
+          </form>
+
+          <div style={{ fontSize: '0.7rem', color: theme.textMuted, textAlign: 'center', borderTop: `1px solid ${theme.border}`, paddingTop: '14px' }}>
+            Your API keys are stored securely in local app storage and never transmitted to external services other than GitHub and Google AI APIs.
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -313,8 +510,7 @@ export default function SearchPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: `1px solid ${theme.border}`, paddingTop: '16px', padding: '0 8px' }}>
             <a
-              href="/RepoLens.exe"
-              download="RepoLens.exe"
+              href="https://github.com/nvsaigokul-sudo/RepoLens/releases/latest/download/RepoLens.exe"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -339,7 +535,7 @@ export default function SearchPage() {
               <span>Download Desktop App</span>
             </a>
             <div style={{ fontSize: '0.68rem', color: theme.textMuted, textAlign: 'center', lineHeight: 1.3 }}>
-              v0.2.0 • Windows (.exe) • 32.3 MB
+              v0.2.0 • Windows 10/11 (64-bit) • 32.3 MB
             </div>
           </div>
         </aside>

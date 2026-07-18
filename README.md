@@ -131,14 +131,34 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 
 ---
 
-## 💻 Desktop Launcher (`RepoLens.exe`)
+## 💻 Desktop Application Download & Installation
 
-RepoLens includes a native C# launcher executable (`RepoLens.exe`) at the root directory. It runs locally as a self-contained client:
-1. Extracting bundled backend JAR runtimes.
-2. Initializing local database connections.
-3. Automatically opening the browser to the client workspace.
+RepoLens includes a native C# launcher and self-contained installer (`RepoLens.exe`) that deploys a local environment.
 
-Users can download the desktop launcher directly from the website's left sidebar.
+### 📥 Download Link
+👉 **[Download RepoLens for Windows v0.2.0](https://github.com/nvsaigokul-sudo/RepoLens/releases/latest/download/RepoLens.exe)**
+
+### 📋 Release Specifications
+- **Current Version**: `v0.2.0`
+- **File Size**: `32.48 MB`
+- **Architecture**: `Windows 10 / 11 (64-bit)`
+- **Dependencies**: Docker Desktop (required to run local databases and service containers)
+
+### 🚀 Installation Instructions
+1. **Prerequisites**: Ensure **Docker Desktop** is installed and running on your system.
+2. **Download**: Click the download link above to fetch the `RepoLens.exe` installer.
+3. **Execution**: Double-click `RepoLens.exe` to run the first-time setup wizard. The installer will automatically:
+   - Extract the Spring Boot JAR runtime and React static assets to `%LocalAppData%\RepoLens\`.
+   - Setup a local Docker Compose context and start all service containers.
+   - Configure a clean uninstaller entry in Windows settings under Programs and Features.
+   - Create desktop and Start Menu shortcuts.
+4. **Onboarding**: Once services initialize, the browser automatically opens to `http://localhost:3000`. You will be welcomed by the onboarding setup screen, prompting you to enter your personal API keys (GitHub token and Gemini API key) which are validated on the spot and securely stored locally.
+
+### 🗑 Uninstallation
+To cleanly remove RepoLens from your machine, simply:
+1. Open Windows **Apps & Features** / **Settings**.
+2. Search for **RepoLens** and click **Uninstall**.
+3. The uninstaller will automatically run `docker compose down -v` to purge container databases, delete shortcuts, remove registry keys, and wipe `%LocalAppData%\RepoLens\`.
 
 ---
 

@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace RepoLens
 {
@@ -274,6 +275,97 @@ namespace RepoLens
                 {
                     ShowError("Installation verification failed. Some files were not successfully extracted.");
                     return;
+                }
+
+                // Copy this executable to target folder
+                UpdateStatus("Configuring application files...", 80);
+                string currentExe = Assembly.GetExecutingAssembly().Location;
+                string destExe = Path.Combine(appFolder, "RepoLens.exe");
+                try
+                {
+                    File.Copy(currentExe, destExe, true);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Failed to copy launcher: " + ex.Message);
+                }
+
+                // Generate uninstall.bat
+                try
+                {
+                    string uninstallBat = Path.Combine(appFolder, "uninstall.bat");
+                    string uninstallContent = string.Format(
+                        "@echo off\r\ntitle RepoLens Uninstaller\r\necho Uninstalling RepoLens...\r\n" +
+                        "cd /d \"{0}\"\r\n" +
+                        "docker compose down -v\r\n" +
+                        "del /f /q \"{1}\\RepoLens.lnk\"\r\n" +
+                        "del /f /q \"{2}\\Programs\\RepoLens.lnk\"\r\n" +
+                        "reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\RepoLens\" /f\r\n" +
+                        "cd ..\r\n" +
+                        "rd /s /q \"{0}\"\r\n" +
+                        "echo RepoLens was successfully uninstalled.\r\n" +
+                        "pause\r\n",
+                        appFolder,
+                        Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                        Environment.GetFolderPath(Environment.SpecialFolder.StartMenu)
+                    );
+                    File.WriteAllText(uninstallBat, uninstallContent);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Failed to generate uninstaller: " + ex.Message);
+                }
+
+                // Create shortcuts using PowerShell
+                try
+                {
+                    string desktopPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "RepoLens.lnk");
+                    string startMenuPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs", "RepoLens.lnk");
+                    
+                    string shortcutScript = string.Format(
+                        "$ws = New-Object -ComObject WScript.Shell;\r\n" +
+                        "$s1 = $ws.CreateShortcut('{0}'); $s1.TargetPath = '{1}'; $s1.WorkingDirectory = '{2}'; $s1.Save();\r\n" +
+                        "$s2 = $ws.CreateShortcut('{3}'); $s2.TargetPath = '{1}'; $s2.WorkingDirectory = '{2}'; $s2.Save();\r\n",
+                        desktopPath.Replace("'", "''"), destExe.Replace("'", "''"), appFolder.Replace("'", "''"), startMenuPath.Replace("'", "''")
+                    );
+                    ProcessStartInfo psStartInfo = new ProcessStartInfo
+                    {
+                        FileName = "powershell",
+                        Arguments = "-Command \"" + shortcutScript.Replace("\r\n", " ") + "\"",
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    };
+                    using (Process process = Process.Start(psStartInfo))
+                    {
+                        process.WaitForExit();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Failed to create shortcuts: " + ex.Message);
+                }
+
+                // Register Windows Uninstaller in HKCU
+                try
+                {
+                    using (RegistryKey parentKey = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall", true))
+                    {
+                        if (parentKey != null)
+                        {
+                            using (RegistryKey appKey = parentKey.CreateSubKey("RepoLens"))
+                            {
+                                appKey.SetValue("DisplayName", "RepoLens");
+                                appKey.SetValue("UninstallString", "\"" + Path.Combine(appFolder, "uninstall.bat") + "\"");
+                                appKey.SetValue("DisplayIcon", destExe);
+                                appKey.SetValue("DisplayVersion", "0.2.0");
+                                appKey.SetValue("Publisher", "RepoLens Team");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Failed to register uninstaller: " + ex.Message);
                 }
 
                 // Step 5: Start services via Docker Compose
