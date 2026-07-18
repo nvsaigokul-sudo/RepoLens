@@ -1,183 +1,187 @@
-# RepoLens (TitanSearch)
+# RepoLens: AI-Powered GitHub Repository Discovery & Analysis
 
-RepoLens is a high-fidelity repository analysis platform that automatically scans, evaluates, and indexes GitHub repositories. It detects technologies, calculates comprehensive health indexes, draws modular SVGs representing system component architectures, and utilizes Gemini AI to generate structural summaries and map the project's recruiter-facing value.
+RepoLens is a premium, high-performance web and desktop platform designed to discover, scan, and audit GitHub repositories. Leveraging advanced AI summaries, health metrics, technology signature lookups, interactive code trees, and direct workspace downloads, RepoLens simplifies code discovery.
 
----
-
-## 🚀 Self-Contained Desktop Application (`RepoLens.exe`)
-
-RepoLens is compiled as a professional, self-contained desktop application. All required services, configuration files, front-end assets, and backend runtimes are fully embedded inside the executable binary.
-
-No source code, development environment, or git repositories are required on the user's computer.
-
-### 📥 Download & Launch
-1. **Download the Application**: [Click here to download RepoLens.exe](https://github.com/nvsaigokul-sudo/RepoLens/raw/main/RepoLens.exe)
-2. **Launch**:
-   * Open **Docker Desktop** (required local container runtime).
-   * Double-click **`RepoLens.exe`** from any folder (e.g., Downloads, Desktop).
-   * The application automatically installs to `%LOCALAPPDATA%\RepoLens`, starts the Postgres, Redis, backend, and frontend containers, and opens your browser at [http://localhost:3000](http://localhost:3000).
-
-> [!IMPORTANT]
-> **Setup Credentials**: Make sure your `GITHUB_TOKEN` and `GEMINI_API_KEY` environment variables are set in Windows (Settings -> Environment Variables) or active in your system environment before launching the application.
+This repository is structured as a unified monorepo containing both the React frontend and Spring Boot backend, designed to compile and deploy under a single unified web service.
 
 ---
 
-## 🛠️ Developer Mode Launcher (`RepoLens.bat`)
-
-For developers working directly inside the cloned repository workspace, we provide a transparent batch script launcher:
-* **Download/Run**: Double-click **`RepoLens.bat`** from the cloned project root folder.
-* It checks the development folder structures, starts local services via your workspace `docker-compose.yml`, and opens the browser.
+## 📖 Table of Contents
+1. [System Architecture](#-system-architecture)
+2. [Key Features & Capabilities](#-key-features--capabilities)
+3. [Performance & Optimization Engine](#-performance--optimization-engine)
+4. [Technology Stack](#-technology-stack)
+5. [Unified Docker & Deployment Pipeline](#-unified-docker--deployment-pipeline)
+6. [Desktop Launcher (`RepoLens.exe`)](#-desktop-launcher-repolensexe)
+7. [Local Development Setup](#-local-development-setup)
 
 ---
 
-## 📁 Repository Structure
+## 🏗 System Architecture
 
-```
-RepoLens/
-├── titansearch-backend/            # Spring Boot 3.3.2 application
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/titansearch/
-│   │   │   │   ├── config/         # Rate limiting, Caching, and Security setup
-│   │   │   │   ├── controller/     # REST Endpoints
-│   │   │   │   ├── dto/            # Request/Response payloads
-│   │   │   │   ├── entity/         # JPA database tables
-│   │   │   │   ├── repository/     # Postgres query layers
-│   │   │   │   ├── security/       # JWT Auth Filters
-│   │   │   │   └── service/        # Core business services
-│   │   │   └── resources/
-│   │   │       ├── db/migration/   # Flyway database schemas
-│   │   │       └── application.yml # Environment configurations
-│   │   └── test/                   # JUnit mock testing suite
-│   ├── Dockerfile
-│   └── pom.xml
-│
-├── titansearch-frontend/           # React 18 SPA
-│   ├── src/
-│   │   ├── assets/                 # Icons & SVGs
-│   │   ├── components/             # Gauge & Diagram visualization modules
-│   │   ├── pages/                  # Route layouts
-│   │   ├── App.tsx                 # Client routing
-│   │   └── index.css               # GitHub Dark stylesheet
-│   ├── Dockerfile
-│   ├── nginx.conf
-│   └── package.json
-│
-└── docker-compose.yml              # Multi-container orchestration
+RepoLens adopts a single-origin, unified architecture where the React SPA frontend is built and served directly by the Spring Boot embedded Tomcat container. This eliminates CORS concerns, optimizes static asset delivery, and enables single-service hosting (e.g., on Render).
+
+```mermaid
+graph TD
+  User[Browser / Client] -->|HTTP Requests| SpringBoot[Spring Boot Tomcat Server - Port 8080]
+  SpringBoot -->|Serves Static Assets| ReactSPA[React SPA Frontend]
+  SpringBoot -->|API Endpoints /api/v1/*| APIControllers[API Controllers]
+  SpringBoot -->|Fallback Forwarding| ReactRouter[SPA Route Redirect /index.html]
+  APIControllers -->|AI Queries| GeminiAPI[Google Gemini 2.5 AI Model]
+  APIControllers -->|Metadata & Content| GitHubAPI[GitHub REST API]
+  ReactSPA -->|Download Link| DesktopEXE[RepoLens.exe Static Asset]
 ```
 
----
+### 1. Unified Single-Service Hosting
+The React frontend static files are compiled into `dist` and copied into `src/main/resources/static/` of the backend resources during build time. The entire application runs as a single JAR package.
 
-## 🛠️ Tech Stack & Key Engines
+### 2. SPA Route Redirection
+To support client-side routing (React Router) natively under Spring Boot, [WebViewController.java](file:///c:/Users/nvsai/Desktop/anti%20gravity/RepoLens/titansearch-backend/src/main/java/com/titansearch/controller/WebViewController.java) intercepts client browser refreshes on routes like `/repository/**` and forwards them internally to `/index.html`.
 
-### Backend Core
-- **Framework**: Spring Boot 3.3.2, Java 21, Spring Security (JWT filter chain)
-- **Database Layer**: JPA Hibernate ORM, PostgreSQL database, Flyway schema migrations
-- **Heuristics & Scan Engines**:
-  - **Tech Stack Detector**: Matches signature files (`pom.xml`, `package.json`, `requirements.txt`, etc.) using regex rules to categorize stack elements.
-  - **Maturity & Health Calculator**: Evaluates Documentation presence, Pushed Activity, Issue Densities, Stars/Forks counts, and repository age to output an index out of 100.
-  - **System Flow Diagram**: Infers Backend, Frontend, Caches, and Database entities and traces connector paths as structured nodes and edges.
-- **AI Integrations**:
-  - **Gemini Client**: Generates JSON summary reports and recruiter portfolio analyses. Wrapped with **Resilience4j Circuit Breakers** and **Retry policies**.
-  - **Asynchronous Processing**: Slowly-executing AI generation steps run on async daemon threads, returning a `202 ACCEPTED` status. The UI polls the endpoint until generation is complete.
-- **Recommendations**: Case-insensitive Weighted Jaccard index matching overlapping technologies and repository topics.
-- **Performance**: Redis cache wrapper & Bucket4j API rate limiter.
-
-### Frontend Client
-- **Framework**: React 18, TypeScript, Vite hot-reload bundler.
-- **Styling**: Premium, responsive **GitHub Dark palette** (Obsidian `#0d1117` backgrounds, `#30363d` active borders, link blues, and success greens).
-- **Widgets**: Custom radial SVG gauges for health percentages, and layout coordinated SVG path connectors for network routing diagrams.
+### 3. Origin-Relative API Routing
+In production, frontend API fetches automatically omit base URLs and query relative endpoints (`/api/v1/...`). In local development mode (`npm run dev`), the client falls back to querying the backend service on `http://localhost:8080`.
 
 ---
 
-## 📋 REST API Contracts
+## 🌟 Key Features & Capabilities
 
-### 🔐 Authentication
-- `POST /api/v1/auth/register` - Create user credentials. Returns JWT.
-- `POST /api/v1/auth/login` - Authenticate user credentials. Returns JWT.
+### 1. Centered Search & Discovery Base
+- **Spring Layout Transitions**: On load, the search controls (Query text field, Language filters, Min Stars slider) are centered to emphasize focus. Submitting a search triggers a spring layout animation (powered by `framer-motion`) that shifts the inputs to the header, fading in results below.
+- **Enriched Cards**: Hover-transforming result cards show license details, topics badges, visibility parameters, and instant AI summaries.
 
-### 🔍 Repository Analytics
-- `GET /api/v1/repositories/search` - Paginated keyword search filtering by stars and languages.
-- `GET /api/v1/repositories/{owner}/{repo}` - Get synced metadata, star metrics, and language breakdowns.
-- `POST /api/v1/repositories/{owner}/{repo}/sync` - Trigger a fresh sync from the GitHub REST API.
-- `GET /api/v1/repositories/{owner}/{repo}/tech-stack` - Fetch detected tech frameworks.
-- `GET /api/v1/repositories/{owner}/{repo}/health-score` - Fetch calculated health percentages and sub-scores.
-- `GET /api/v1/repositories/{owner}/{repo}/architecture` - Get inferred system node architecture.
-- `GET /api/v1/repositories/{owner}/{repo}/similar` - Get recommended sibling repositories.
+### 2. Public Authentication-Free Access & Branding
+- **Zero Login Friction**: The application requires no login, signups, accounts, or profile setups. It operates entirely as a public auditing tool.
+- **Custom Brand Identity**: Replaced generic symbols with the **RepoLens Logo** (a vector magnifying lens focusing on code editor brackets `< >`) and the tagline: *"AI-Powered GitHub Repository Discovery & Analysis"*.
 
-### 🤖 AI Summary & Recruiter Rating
-- `GET /api/v1/repositories/{owner}/{repo}/ai-summary` - Get functional/architectural summary. Returns `202 PENDING` if compiling.
-- `POST /api/v1/ai-summary/regenerate` - Manually trigger an AI update (roles restricted, rate limited).
-- `POST /api/v1/repositories/{owner}/{repo}/resume-analysis` - Get recruiter portfolio fit analysis. Returns `202 PENDING` if compiling.
-
-### ⭐️ Saved favorites & search history
-- `GET /api/v1/favorites` - Get favorite repositories.
-- `POST /api/v1/favorites/{id}` - Add repository to favorites.
-- `DELETE /api/v1/favorites/{id}` - Remove repository from favorites.
-- `GET /api/v1/history` - Get user search query log.
+### 3. Repository details view (70/30 Split)
+- **Left Content Pane (70%)**: Features repository parameters, README markdown viewer, computed overall health metrics, code maturity metrics, and the files tree.
+- **Right Sidebar (30%)**: Houses owner profiles, company locations, quick copy HTTP/SSH clone panels, bookmarks registry, and the **Direct ZIP Downloader** (which streams zipballs directly with progress-bar loading).
+- **Gemini Chatbot Sidepanel**: Allows real-time messaging about the codebase with a temperature/creativity adjustment slider.
 
 ---
 
-## 📦 Container Setup & Local Deployment
+## ⚡ Performance & Optimization Engine
 
-### Configure Environment Variables
-Configure your credentials in your current shell session:
-```bash
-# Windows (PowerShell)
-$env:GITHUB_TOKEN="your-github-token"
-$env:GEMINI_API_KEY="your-gemini-key"
-$env:JWT_SECRET="your-jwt-signing-secret"
+RepoLens incorporates advanced client-side caching and fetch cancellation architectures to feel instant:
 
-# Linux / macOS
-export GITHUB_TOKEN="your-github-token"
-export GEMINI_API_KEY="your-gemini-key"
-export JWT_SECRET="your-jwt-signing-secret"
+### 1. Stale-While-Revalidate (SWR) Caching
+- **Search Cache**: Page queries, slider parameters, and results lists are cached in memory. Navigating back from detail views restores states instantly.
+- **Detail Metadata Cache**: Caches tech stacks, health score matrices, AI summaries, and structural diagrams per repository. Detail pages load in under 50ms.
+- **File Explorer Cache**: Persists previously opened directory folders and file code drawer text previews in memory. Expanding, collapsing, and selecting files is instant.
+
+### 2. HTTP ETag Conditional Requests
+GitHub API profile lookups check locally stored ETags (`If-None-Match`). Unmodified assets return `304 Not Modified`, preserving rate limit quotas.
+
+### 3. Query Abort Controllers
+Pending backend search queries and repository details fetches are aborted instantly if the user updates parameters or navigates away. This prevents overlapping state commits, race conditions, and memory leaks.
+
+---
+
+## 🛠 Technology Stack
+
+### Frontend
+- **React 18** & **TypeScript**
+- **Vite** (Build toolchain)
+- **Framer Motion** (Spring layout animations)
+- **Lucide React** (Branding iconography)
+
+### Backend
+- **Spring Boot 3.x** & **Java 21**
+- **Maven** (Dependency manager)
+- **Google Gemini Client** (Integrated with the `gemini-2.5-flash` model)
+
+### Desktop Launcher
+- **C# (.NET Framework)** (Compiles native executable wrapper)
+- **PowerShell** (Automated zip extraction and packaging scripts)
+
+---
+
+## 🐳 Unified Docker & Deployment Pipeline
+
+The project's root `Dockerfile` defines a 3-stage multi-stage builder to create a lightweight, optimized runtime image:
+
+```dockerfile
+# Stage 1: Build React SPA
+FROM node:20-alpine AS frontend-build
+WORKDIR /app
+COPY titansearch-frontend/package*.json ./
+RUN npm install
+COPY titansearch-frontend/ ./
+RUN npm run build
+
+# Stage 2: Build Spring Boot Backend
+FROM maven:3.9-amazoncorretto-21 AS backend-build
+WORKDIR /app
+COPY titansearch-backend/pom.xml ./
+RUN mvn dependency:go-offline
+COPY titansearch-backend/ ./
+COPY --from=frontend-build /app/dist/ ./src/main/resources/static/
+# Packages the precompiled desktop executable for direct user download
+COPY RepoLens.exe ./src/main/resources/static/
+RUN mvn clean package -DskipTests
+
+# Stage 3: Run Application
+FROM amazoncorretto:21-alpine
+WORKDIR /app
+COPY --from=backend-build /app/target/*.jar app.jar
+EXPOSE 8080
+ENV SPRING_PROFILES_ACTIVE=prod
+ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
 
-### Option A: Run Full Stack via Docker
-Build and orchestrate all services inside Docker containers:
-```bash
-docker compose up --build -d
-```
-Once started, access the React client at [http://localhost:3000](http://localhost:3000) and the backend API at [http://localhost:8080](http://localhost:8080).
+---
 
-### Option B: Run Dev Services Locally
-If you want hot-reloading active frontends and simple backend console logs:
+## 💻 Desktop Launcher (`RepoLens.exe`)
 
-1. **Launch containerized database and cache dependencies**:
-   ```bash
-   docker compose up -d postgres redis
-   ```
-   *Note: Containerized PostgreSQL is mapped to port `5439` to prevent port collisions with native host PostgreSQL services.*
+RepoLens includes a native C# launcher executable (`RepoLens.exe`) at the root directory. It runs locally as a self-contained client:
+1. Extracting bundled backend JAR runtimes.
+2. Initializing local database connections.
+3. Automatically opening the browser to the client workspace.
 
-2. **Run Spring Boot Backend**:
+Users can download the desktop launcher directly from the website's left sidebar.
+
+---
+
+## 🚀 Local Development Setup
+
+### Prerequisites
+- Java JDK 21
+- Node.js 20+
+- Maven 3.8+
+
+### Step 1: Run the Backend
+1. Navigate to the backend directory:
    ```bash
    cd titansearch-backend
+   ```
+2. Export your developer API keys in your terminal environment:
+   ```bash
+   export GITHUB_TOKEN="your_github_token"
+   export GEMINI_API_KEY="your_gemini_api_key"
+   ```
+3. Run the Spring Boot application:
+   ```bash
    mvn spring-boot:run
    ```
 
-3. **Run React Frontend**:
+### Step 2: Run the Frontend
+1. Navigate to the frontend directory:
    ```bash
    cd titansearch-frontend
+   ```
+2. Install dependencies:
+   ```bash
    npm install
+   ```
+3. Run in developer hot-reload mode:
+   ```bash
    npm run dev
    ```
-   Open your browser to [http://localhost:5173](http://localhost:5173).
+4. Access the frontend in your browser at `http://localhost:5173`.
 
----
-
-## 🧪 Local Testing
-
-### Backend Unit Tests
-Execute JUnit MockMvc controller slices and auth service checks:
-```bash
-cd titansearch-backend
-mvn test "-Dtest=AuthServiceTest,RepositorySearchControllerTest"
+### Step 3: Package the Desktop Launcher
+To compile changes into the self-contained launcher executable, execute the build script from a PowerShell terminal at the root:
+```powershell
+.\build_launcher.ps1
 ```
-
-### Frontend Production Build
-Verify TypeScript compliance and package assets:
-```bash
-cd titansearch-frontend
-npm run build
-```
+This generates the packaged client wrapper at `RepoLens.exe`.
