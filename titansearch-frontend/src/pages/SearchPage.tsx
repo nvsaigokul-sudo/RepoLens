@@ -75,17 +75,42 @@ export default function SearchPage() {
   const [settingsSaved, setSettingsSaved] = useState(false);
 
   // Onboarding verification checks
-  const [hasKeys, setHasKeys] = useState(() => {
-    const git = localStorage.getItem('repolens-git-token');
-    const gemini = localStorage.getItem('repolens-gemini-key');
-    return !!(git && gemini);
-  });
+  const [hasKeys, setHasKeys] = useState(true);
   const [gitTokenInput, setGitTokenInput] = useState(gitToken);
   const [geminiKeyInput, setGeminiKeyInput] = useState(geminiKey);
 
   useEffect(() => {
     localStorage.setItem('repolens-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
+
+  useEffect(() => {
+    const checkConfigStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/config/status`);
+        const json = await res.json();
+        if (res.ok && json.data) {
+          const { githubTokenConfigured, geminiKeyConfigured } = json.data;
+          if (githubTokenConfigured && geminiKeyConfigured) {
+            setHasKeys(true);
+          } else {
+            const git = localStorage.getItem('repolens-git-token');
+            const gemini = localStorage.getItem('repolens-gemini-key');
+            setHasKeys(!!(git && gemini));
+          }
+        } else {
+          const git = localStorage.getItem('repolens-git-token');
+          const gemini = localStorage.getItem('repolens-gemini-key');
+          setHasKeys(!!(git && gemini));
+        }
+      } catch (e) {
+        console.error("Failed to check backend configuration status:", e);
+        const git = localStorage.getItem('repolens-git-token');
+        const gemini = localStorage.getItem('repolens-gemini-key');
+        setHasKeys(!!(git && gemini));
+      }
+    };
+    checkConfigStatus();
+  }, []);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
