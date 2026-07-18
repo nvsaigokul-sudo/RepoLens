@@ -14,6 +14,10 @@ interface FileExplorerProps {
   repo: string;
 }
 
+// Global module-level cache to persist data across FileExplorer unmounts (e.g. switching tabs)
+const folderCache: { [key: string]: FileItem[] } = {};
+const fileContentCache: { [key: string]: string } = {};
+
 export default function FileExplorer({ owner, repo }: FileExplorerProps) {
   const [currentPath, setCurrentPath] = useState<string[]>([]);
   const [items, setItems] = useState<FileItem[]>([]);
@@ -28,13 +32,37 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
 
   const pathString = currentPath.join('/');
 
+  // Dark theme detection
+  const darkMode = localStorage.getItem('repolens-theme') === 'dark';
+  const theme = {
+    bg: darkMode ? '#0d1117' : '#ffffff',
+    text: darkMode ? '#c9d1d9' : '#24292f',
+    textMuted: darkMode ? '#8b949e' : '#57606a',
+    border: darkMode ? '#30363d' : '#d0d7de',
+    cardBg: darkMode ? '#161b22' : '#ffffff',
+    sidebarBg: darkMode ? '#161b22' : '#f6f8fa',
+    codeBg: darkMode ? '#0d1117' : '#fafafa'
+  };
+
   const fetchContents = async (path: string) => {
-    setLoading(true);
+    const cacheKey = `${owner}/${repo}/${path}`;
+    
+    // Stale-While-Revalidate Caching
+    if (folderCache[cacheKey]) {
+      setItems(folderCache[cacheKey]);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`);
       if (res.ok) {
         const data = await res.json();
-        setItems(Array.isArray(data) ? data : []);
+        const contentItems = Array.isArray(data) ? data : [];
+        // Save to cache
+        folderCache[cacheKey] = contentItems;
+        setItems(contentItems);
       } else {
         console.error("Failed to fetch folder contents");
       }
@@ -68,12 +96,22 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
   const handleFileClick = async (file: FileItem) => {
     if (!file.download_url) return;
     setSelectedFile(file);
-    setPreviewLoading(true);
-    setPreviewContent('');
+
+    // Stale-While-Revalidate for files
+    if (fileContentCache[file.download_url]) {
+      setPreviewContent(fileContentCache[file.download_url]);
+      setPreviewLoading(false);
+    } else {
+      setPreviewLoading(true);
+      setPreviewContent('');
+    }
+
     try {
       const res = await fetch(file.download_url);
       if (res.ok) {
         const text = await res.text();
+        // Save to cache
+        fileContentCache[file.download_url] = text;
         setPreviewContent(text);
       } else {
         setPreviewContent("Failed to load file content.");
@@ -126,7 +164,7 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
       {/* Search and Metadata header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         {/* Breadcrumbs Navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', color: '#57606a', fontWeight: 500 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', color: theme.textMuted, fontWeight: 500 }}>
           <button 
             onClick={() => handleBreadcrumbClick(-1)}
             style={{ background: 'none', border: 'none', color: '#0969da', cursor: 'pointer', fontWeight: 600, padding: 0 }}
@@ -135,10 +173,10 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
           </button>
           {currentPath.map((folder, idx) => (
             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <ChevronRight size={14} color="#57606a" />
+              <ChevronRight size={14} color={theme.textMuted} />
               <button 
                 onClick={() => handleBreadcrumbClick(idx)}
-                style={{ background: 'none', border: 'none', color: idx === currentPath.length - 1 ? '#24292f' : '#0969da', cursor: idx === currentPath.length - 1 ? 'default' : 'pointer', fontWeight: idx === currentPath.length - 1 ? 600 : 500, padding: 0 }}
+                style={{ background: 'none', border: 'none', color: idx === currentPath.length - 1 ? theme.text : '#0969da', cursor: idx === currentPath.length - 1 ? 'default' : 'pointer', fontWeight: idx === currentPath.length - 1 ? 600 : 500, padding: 0 }}
                 disabled={idx === currentPath.length - 1}
               >
                 {folder}
@@ -156,36 +194,36 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
               width: '100%',
-              background: '#f6f8fa',
-              border: '1px solid #d0d7de',
+              background: theme.sidebarBg,
+              border: `1px solid ${theme.border}`,
               borderRadius: '6px',
               padding: '6px 10px 6px 28px',
               fontSize: '0.8rem',
-              color: '#24292f',
+              color: theme.text,
               outline: 'none'
             }}
           />
-          <Search size={13} color="#57606a" style={{ position: 'absolute', left: '8px', top: '8px' }} />
+          <Search size={13} color={theme.textMuted} style={{ position: 'absolute', left: '8px', top: '8px' }} />
         </div>
       </div>
 
       {/* Main Files Table Card */}
-      <div style={{ border: '1px solid #d0d7de', borderRadius: '6px', overflow: 'hidden', background: '#ffffff' }}>
+      <div style={{ border: `1px solid ${theme.border}`, borderRadius: '6px', overflow: 'hidden', background: theme.cardBg }}>
         
         {/* Directories and File Counts Header */}
-        <div style={{ background: '#f6f8fa', padding: '10px 16px', borderBottom: '1px solid #d0d7de', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#57606a', fontWeight: 600 }}>
+        <div style={{ background: theme.sidebarBg, padding: '10px 16px', borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: theme.textMuted, fontWeight: 600 }}>
           <span>CURRENT PATH: /{pathString}</span>
           <span>{folderCount} Folders • {fileCount} Files</span>
         </div>
 
         {/* Loading Spinner */}
-        {loading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#57606a', fontSize: '0.85rem' }}>
+        {loading && items.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: theme.textMuted, fontSize: '0.85rem' }}>
             <div className="spin-icon" style={{ display: 'inline-block', width: '24px', height: '24px', borderRadius: '50%', border: '2.5px solid #eaeef2', borderTopColor: '#0969da', marginBottom: '8px' }} />
             <div>Reading file contents...</div>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div style={{ padding: '32px', textAlign: 'center', color: '#57606a', fontSize: '0.85rem' }}>
+          <div style={{ padding: '32px', textAlign: 'center', color: theme.textMuted, fontSize: '0.85rem' }}>
             No matches found in this directory.
           </div>
         ) : (
@@ -203,9 +241,9 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
                       gridTemplateColumns: '220px 1fr 100px 110px',
                       alignItems: 'center',
                       padding: '10px 16px',
-                      borderBottom: idx < filteredItems.length - 1 ? '1px solid #d0d7de' : 'none',
+                      borderBottom: idx < filteredItems.length - 1 ? `1px solid ${theme.border}` : 'none',
                       fontSize: '0.85rem',
-                      background: '#ffffff'
+                      background: theme.cardBg
                     }}
                   >
                     {/* Item Name & Icon */}
@@ -238,7 +276,7 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
-                          color: '#24292f',
+                          color: theme.text,
                           fontWeight: 500,
                           cursor: 'pointer',
                           fontFamily: 'monospace',
@@ -246,23 +284,23 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
                           textAlign: 'left'
                         }}
                       >
-                        <FileCode size={15} color="#57606a" />
+                        <FileCode size={15} color={theme.textMuted} />
                         <span>{item.name}</span>
                       </button>
                     )}
 
                     {/* Commit Message */}
-                    <span style={{ color: '#57606a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '12px' }}>
+                    <span style={{ color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '12px' }}>
                       {commit.message}
                     </span>
 
                     {/* File Size */}
-                    <span style={{ fontSize: '0.78rem', color: '#57606a', fontFamily: 'monospace' }}>
+                    <span style={{ fontSize: '0.78rem', color: theme.textMuted, fontFamily: 'monospace' }}>
                       {item.type === 'file' ? (item.size / 1024).toFixed(1) + ' KB' : '—'}
                     </span>
 
                     {/* Last Modified */}
-                    <span style={{ fontSize: '0.78rem', color: '#57606a', textAlign: 'right' }}>
+                    <span style={{ fontSize: '0.78rem', color: theme.textMuted, textAlign: 'right' }}>
                       {commit.time}
                     </span>
                   </div>
@@ -274,11 +312,11 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
 
       {/* File Contents Preview Drawer */}
       {selectedFile && (
-        <div style={{ border: '1px solid #d0d7de', borderRadius: '6px', overflow: 'hidden', background: '#ffffff', marginTop: '8px' }}>
+        <div style={{ border: `1px solid ${theme.border}`, borderRadius: '6px', overflow: 'hidden', background: theme.cardBg, marginTop: '8px' }}>
           {/* Preview Header */}
-          <div style={{ background: '#f6f8fa', borderBottom: '1px solid #d0d7de', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: '#24292f' }}>
-              <FileText size={15} color="#57606a" />
+          <div style={{ background: theme.sidebarBg, borderBottom: `1px solid ${theme.border}`, padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: theme.text }}>
+              <FileText size={15} color={theme.textMuted} />
               <span>Previewing: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</span>
             </div>
             
@@ -288,13 +326,13 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
                 onClick={handleCopyCode}
                 disabled={previewLoading}
                 style={{
-                  background: '#f6f8fa',
-                  border: '1px solid #d0d7de',
+                  background: theme.sidebarBg,
+                  border: `1px solid ${theme.border}`,
                   borderRadius: '6px',
                   padding: '4px 8px',
                   fontSize: '0.75rem',
                   fontWeight: 600,
-                  color: '#24292f',
+                  color: theme.text,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -308,7 +346,7 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
               {/* Close button */}
               <button 
                 onClick={() => setSelectedFile(null)}
-                style={{ background: 'none', border: 'none', color: '#57606a', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
               >
                 <X size={16} />
               </button>
@@ -316,9 +354,9 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
           </div>
 
           {/* Preview Viewport */}
-          <div style={{ padding: '20px', maxHeight: '500px', overflowY: 'auto', background: '#ffffff' }}>
+          <div style={{ padding: '20px', maxHeight: '500px', overflowY: 'auto', background: theme.bg }}>
             {previewLoading ? (
-              <div style={{ padding: '24px', textAlign: 'center', color: '#57606a', fontSize: '0.85rem' }}>
+              <div style={{ padding: '24px', textAlign: 'center', color: theme.textMuted, fontSize: '0.85rem' }}>
                 <div className="spin-icon" style={{ display: 'inline-block', width: '20px', height: '20px', borderRadius: '50%', border: '2px solid #eaeef2', borderTopColor: '#0969da', marginBottom: '6px' }} />
                 <div>Retrieving file content...</div>
               </div>
@@ -326,14 +364,14 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
               <pre style={{
                 margin: 0,
                 fontSize: '0.82rem',
-                color: '#24292f',
+                color: theme.text,
                 fontFamily: 'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-all',
-                background: '#fafafa',
+                background: theme.codeBg,
                 padding: '16px',
                 borderRadius: '6px',
-                border: '1px solid #eaeef2'
+                border: `1px solid ${theme.border}`
               }}>
                 <code>{previewContent}</code>
               </pre>

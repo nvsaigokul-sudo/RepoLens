@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Star, GitFork, ChevronLeft, ChevronRight, Bell, Folder,
-  Settings, ArrowRight, Shield, Calendar, Sparkles, Moon, Sun, Key, Sliders, Check
+  Settings, ArrowRight, Shield, Calendar, Sparkles, Moon, Sun, Key, Sliders, Check, Download
 } from 'lucide-react';
 import SkeletonCard from '../components/SkeletonCard';
 
@@ -36,17 +36,28 @@ export function RepoLensLogo({ color = '#0969da', size = 32 }: { color?: string;
   );
 }
 
+// Module level search cache for instant back navigation restoring
+let cachedQuery = '';
+let cachedLanguage = '';
+let cachedMinStars = 0;
+let cachedResults: RepositorySummary[] = [];
+let cachedTotalPages = 0;
+let cachedTotalElements = 0;
+let cachedPage = 0;
+let cachedHasSearched = false;
+
 export default function SearchPage() {
-  const [query, setQuery] = useState('');
-  const [language, setLanguage] = useState('');
-  const [minStars, setMinStars] = useState(0);
-  const [page, setPage] = useState(0);
+  const [query, setQuery] = useState(cachedQuery);
+  const [language, setLanguage] = useState(cachedLanguage);
+  const [minStars, setMinStars] = useState(cachedMinStars);
+  const [page, setPage] = useState(cachedPage);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [results, setResults] = useState<RepositorySummary[]>([]);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [results, setResults] = useState<RepositorySummary[]>(cachedResults);
+  const [totalPages, setTotalPages] = useState(cachedTotalPages);
+  const [totalElements, setTotalElements] = useState(cachedTotalElements);
+  const [hasSearched, setHasSearched] = useState(cachedHasSearched);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Left sidebar menu and stateful favorites list
   const [activeMenuTab, setActiveMenuTab] = useState<'discover' | 'favorites' | 'settings'>('discover');
@@ -91,6 +102,13 @@ export default function SearchPage() {
 
   const performSearch = async (pageNum = 0) => {
     if (!query.trim()) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setError('');
     setHasSearched(true);
@@ -103,7 +121,9 @@ export default function SearchPage() {
     params.append('size', '10');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/repositories/search?${params.toString()}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/repositories/search?${params.toString()}`, {
+        signal: controller.signal
+      });
       const json = await response.json();
 
       if (!response.ok) {
@@ -123,10 +143,22 @@ export default function SearchPage() {
       setTotalPages(json.data.totalPages || 0);
       setTotalElements(json.data.totalElements || 0);
       setPage(pageNum);
+
+      cachedQuery = query;
+      cachedLanguage = language;
+      cachedMinStars = minStars;
+      cachedResults = enriched;
+      cachedTotalPages = json.data.totalPages || 0;
+      cachedTotalElements = json.data.totalElements || 0;
+      cachedPage = pageNum;
+      cachedHasSearched = true;
     } catch (err: any) {
+      if (err.name === 'AbortError') return;
       setError(err.message || 'Failed to fetch search results');
     } finally {
-      setLoading(false);
+      if (abortControllerRef.current === controller) {
+        setLoading(false);
+      }
     }
   };
 
@@ -279,8 +311,36 @@ export default function SearchPage() {
             </div>
           </div>
 
-          <div style={{ padding: '0 8px', fontSize: '0.75rem', color: theme.textMuted, textAlign: 'center', borderTop: `1px solid ${theme.border}`, paddingTop: '12px' }}>
-            RepoLens v0.2.0 • {darkMode ? 'Obsidian Dark' : 'Light Mode'}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: `1px solid ${theme.border}`, paddingTop: '16px', padding: '0 8px' }}>
+            <a
+              href="/RepoLens.exe"
+              download="RepoLens.exe"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                width: '100%',
+                padding: '10px 0',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                color: '#ffffff',
+                background: '#0969da',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                boxShadow: '0 2px 8px rgba(9, 105, 218, 0.25)',
+                transition: 'background-color 0.2s',
+                textAlign: 'center'
+              }}
+            >
+              <Download size={14} />
+              <span>Download Desktop App</span>
+            </a>
+            <div style={{ fontSize: '0.68rem', color: theme.textMuted, textAlign: 'center', lineHeight: 1.3 }}>
+              v0.2.0 • Windows (.exe) • 32.3 MB
+            </div>
           </div>
         </aside>
 

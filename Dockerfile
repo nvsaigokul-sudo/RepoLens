@@ -14,6 +14,8 @@ RUN mvn dependency:go-offline
 COPY titansearch-backend/ ./
 # Copy React compiled assets into Spring Boot static resources folder
 COPY --from=frontend-build /app/dist/ ./src/main/resources/static/
+# Copy RepoLens desktop executable to static resources for download
+COPY RepoLens.exe ./src/main/resources/static/
 RUN mvn clean package -DskipTests
 
 # Stage 3: Run Application

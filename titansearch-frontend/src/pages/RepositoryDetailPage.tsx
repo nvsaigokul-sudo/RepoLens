@@ -60,11 +60,25 @@ interface ChatMessage {
   text: string;
 }
 
+// Global details page data cache to support instant loading (Stale-While-Revalidate)
+interface CacheEntry {
+  detail?: RepoDetail;
+  ownerData?: any;
+  techStack?: any[];
+  healthScore?: HealthScoreData;
+  architecture?: any;
+  aiSummary?: AiSummaryData;
+  resumeAnalysis?: ResumeAnalysisData;
+}
+const detailsCache: { [repoName: string]: CacheEntry } = {};
+const etagCache: { [url: string]: { etag: string; data: any } } = {};
+
 export default function RepositoryDetailPage() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const repoFullName = `${owner}/${repo}`;
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Tabs: Overview, AI Analysis, Files
   const initialTab = (location.state as any)?.activeTab || 'overview';
@@ -130,106 +144,163 @@ export default function RepositoryDetailPage() {
     inputBg: darkMode ? '#0d1117' : '#f6f8fa'
   };
 
-  const fetchDetail = async () => {
+  const fetchDetail = async (signal: AbortSignal) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}`, { signal });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error?.message || 'Failed to fetch details');
       setDetail(json.data);
+      if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
+      detailsCache[repoFullName].detail = json.data;
     } catch (err: any) {
+      if (err.name === 'AbortError') return;
       setError(err.message || 'Failed to load repository detail');
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
   };
 
-  const fetchOwnerData = async () => {
+  const fetchOwnerData = async (signal: AbortSignal) => {
+    const url = `https://api.github.com/users/${owner || ''}`;
+    const headers: HeadersInit = {};
+    if (etagCache[url]) {
+      headers['If-None-Match'] = etagCache[url].etag;
+    }
+
     try {
-      const res = await fetch(`https://api.github.com/users/${owner || ''}`);
+      const res = await fetch(url, { signal, headers });
+      if (res.status === 304 && etagCache[url]) {
+        setOwnerData(etagCache[url].data);
+        if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
+        detailsCache[repoFullName].ownerData = etagCache[url].data;
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
+        const etag = res.headers.get('etag');
+        if (etag) {
+          etagCache[url] = { etag, data };
+        }
         setOwnerData(data);
+        if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
+        detailsCache[repoFullName].ownerData = data;
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
       console.error(e);
     }
   };
 
-  const fetchTechStack = async () => {
+  const fetchTechStack = async (signal: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/tech-stack`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/tech-stack`, { signal });
       const json = await res.json();
-      if (res.ok) setTechStack(json.data);
-    } catch (e) {
+      if (res.ok) {
+        setTechStack(json.data);
+        if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
+        detailsCache[repoFullName].techStack = json.data;
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
       console.error(e);
     }
   };
 
-  const fetchHealthScore = async () => {
+  const fetchHealthScore = async (signal: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/health-score`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/health-score`, { signal });
       const json = await res.json();
-      if (res.ok) setHealthScore(json.data);
-    } catch (e) {
+      if (res.ok) {
+        setHealthScore(json.data);
+        if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
+        detailsCache[repoFullName].healthScore = json.data;
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
       console.error(e);
     }
   };
 
-  const fetchArchitecture = async () => {
+  const fetchArchitecture = async (signal: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/architecture`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/architecture`, { signal });
       const json = await res.json();
-      if (res.ok) setArchitecture(json.data);
-    } catch (e) {
+      if (res.ok) {
+        setArchitecture(json.data);
+        if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
+        detailsCache[repoFullName].architecture = json.data;
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
       console.error(e);
     }
   };
 
-  const fetchSimilar = async () => {
+  const fetchSimilar = async (signal: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/similar`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/similar`, { signal });
       const json = await res.json();
-      if (res.ok) setSimilarRepos(json.data);
-    } catch (e) {
+      if (res.ok) {
+        setSimilarRepos(json.data);
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
       console.error(e);
     }
   };
 
-  const fetchAiSummary = async () => {
+  const fetchAiSummary = async (signal: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/ai-summary`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/ai-summary`, { signal });
       const json = await res.json();
       if (res.ok && json.data) {
         setAiSummary(json.data);
+        if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
+        detailsCache[repoFullName].aiSummary = json.data;
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
       console.error(e);
     }
   };
 
-  const triggerResumeAnalysis = async () => {
+  const triggerResumeAnalysis = async (signal: AbortSignal) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/resume-analysis`, {
-        method: 'POST'
+        method: 'POST',
+        signal
       });
       const json = await res.json();
       if (res.ok && json.data) {
         setResumeAnalysis(json.data);
+        if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
+        detailsCache[repoFullName].resumeAnalysis = json.data;
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
       console.error(e);
     }
   };
 
   const handleForceSync = async () => {
     setSyncing(true);
+    delete detailsCache[repoFullName];
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/sync`, {
         method: 'POST'
       });
       if (res.ok) {
-        fetchDetail();
-        fetchOwnerData();
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        const signal = controller.signal;
+
         setTechStack([]);
         setHealthScore(null);
         setArchitecture(null);
@@ -237,12 +308,14 @@ export default function RepositoryDetailPage() {
         setResumeAnalysis(null);
         setAiSummary(null);
         
-        fetchTechStack();
-        fetchHealthScore();
-        fetchArchitecture();
-        fetchSimilar();
-        fetchAiSummary();
-        triggerResumeAnalysis();
+        fetchDetail(signal);
+        fetchOwnerData(signal);
+        fetchTechStack(signal);
+        fetchHealthScore(signal);
+        fetchArchitecture(signal);
+        fetchSimilar(signal);
+        fetchAiSummary(signal);
+        triggerResumeAnalysis(signal);
       }
     } catch (e) {
       console.error(e);
@@ -329,15 +402,48 @@ export default function RepositoryDetailPage() {
   }, [messages, chatLoading]);
 
   useEffect(() => {
-    setLoading(true);
-    fetchDetail();
-    fetchOwnerData();
-    fetchTechStack();
-    fetchHealthScore();
-    fetchArchitecture();
-    fetchSimilar();
-    fetchAiSummary();
-    triggerResumeAnalysis();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const signal = controller.signal;
+
+    const cacheKey = repoFullName;
+    const cached = detailsCache[cacheKey];
+    if (cached) {
+      if (cached.detail) setDetail(cached.detail);
+      if (cached.ownerData) setOwnerData(cached.ownerData);
+      if (cached.techStack) setTechStack(cached.techStack);
+      if (cached.healthScore) setHealthScore(cached.healthScore);
+      if (cached.architecture) setArchitecture(cached.architecture);
+      if (cached.aiSummary) setAiSummary(cached.aiSummary);
+      if (cached.resumeAnalysis) setResumeAnalysis(cached.resumeAnalysis);
+      setLoading(false);
+    } else {
+      setLoading(true);
+      setDetail(null);
+      setOwnerData(null);
+      setTechStack([]);
+      setHealthScore(null);
+      setArchitecture(null);
+      setSimilarRepos([]);
+      setResumeAnalysis(null);
+      setAiSummary(null);
+    }
+
+    fetchDetail(signal);
+    fetchOwnerData(signal);
+    fetchTechStack(signal);
+    fetchHealthScore(signal);
+    fetchArchitecture(signal);
+    fetchSimilar(signal);
+    fetchAiSummary(signal);
+    triggerResumeAnalysis(signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [owner, repo]);
 
   const handleHeaderSearchSubmit = (e: React.FormEvent) => {
