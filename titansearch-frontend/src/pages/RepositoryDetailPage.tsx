@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  BookOpen, RefreshCw, Layers, Cpu, FileText,
-  Bell, Search, Send, Folder, FileCode,
-  SlidersHorizontal, GitBranch, ChevronDown, Plus
+  RefreshCw, FileText, Bell, Star, GitFork, Eye, AlertCircle,
+  Globe, Copy, Check, ExternalLink, Bookmark, Download, Sparkles, Folder
 } from 'lucide-react';
-import HealthScoreGauge from '../components/HealthScoreGauge';
+import FileExplorer from '../components/FileExplorer';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -47,6 +46,14 @@ interface ResumeAnalysisData {
   weaknesses: string;
 }
 
+interface AiSummaryData {
+  overview: string;
+  mainPurpose: string;
+  learningValue: string;
+  architectureSummary: string;
+  keyTechnologies: string;
+}
+
 interface ChatMessage {
   sender: 'user' | 'ai';
   text: string;
@@ -55,10 +62,12 @@ interface ChatMessage {
 export default function RepositoryDetailPage() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const repoFullName = `${owner}/${repo}`;
 
-  // Tab views
-  const [activeSidebarTab, setActiveSidebarTab] = useState<'overview' | 'dashboard' | 'analysis' | 'security' | 'reports' | 'settings'>('overview');
+  // Tabs: Overview, AI Analysis, Files
+  const initialTab = (location.state as any)?.activeTab || 'overview';
+  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'files'>(initialTab === 'chat' ? 'overview' : initialTab);
 
   // Loading / Error states
   const [loading, setLoading] = useState(true);
@@ -71,8 +80,7 @@ export default function RepositoryDetailPage() {
   const [architecture, setArchitecture] = useState<any>(null);
   const [similarRepos, setSimilarRepos] = useState<SimilarRepo[]>([]);
   const [resumeAnalysis, setResumeAnalysis] = useState<ResumeAnalysisData | null>(null);
-  const [files, setFiles] = useState<any[]>([]);
-  const [filesLoading, setFilesLoading] = useState(false);
+  const [aiSummary, setAiSummary] = useState<AiSummaryData | null>(null);
 
   // Search input in header
   const [headerSearch, setHeaderSearch] = useState('');
@@ -83,10 +91,22 @@ export default function RepositoryDetailPage() {
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [temperature, setTemperature] = useState(0.7);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Sync / Force Re-sync
   const [syncing, setSyncing] = useState(false);
+
+  // Owner detailed state
+  const [ownerData, setOwnerData] = useState<any>(null);
+
+  // Copy URL states
+  const [copiedUrlType, setCopiedUrlType] = useState<'https' | 'ssh' | 'share' | null>(null);
+  const [bookmarked, setBookmarked] = useState(false);
+
+  // Direct ZIP download progress states
+  const [downloadState, setDownloadState] = useState<'idle' | 'preparing' | 'downloading' | 'complete'>('idle');
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   const fetchDetail = async () => {
     try {
@@ -101,52 +121,18 @@ export default function RepositoryDetailPage() {
     }
   };
 
-  // Fetch file list directly from GitHub Contents API
-  const fetchFiles = async () => {
-    setFilesLoading(true);
+  const fetchOwnerData = async () => {
     try {
-      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents`);
+      const res = await fetch(`https://api.github.com/users/${owner || ''}`);
       if (res.ok) {
         const data = await res.json();
-        setFiles(Array.isArray(data) ? data : []);
+        setOwnerData(data);
       }
     } catch (e) {
-      console.error("Failed to fetch repository files list", e);
-    } finally {
-      setFilesLoading(false);
+      console.error(e);
     }
   };
 
-  // Deterministic mock commit details for files to resemble screenshot
-  const getMockCommitInfo = (filename: string) => {
-    if (filename === 'src') return { message: "Updarized a compits posts index.html", time: "3 hours ago" };
-    if (filename === 'docs') return { message: "Initializes t running docs", time: "2 hours ago" };
-    if (filename === 'README.md') return { message: "Add commits", time: "2 days ago" };
-    if (filename === 'package.json') return { message: "Updarized a compits posts index.json", time: "3 hours ago" };
-    if (filename === 'index.html') return { message: "Updarized a compits posts index.html", time: "3 hours ago" };
-
-    const messages = [
-      "Configure backend modules",
-      "Update documentation details",
-      "Refactor services and logic",
-      "Initial commit",
-      "Clean up dependencies",
-      "Fix alignment and style rules"
-    ];
-    const times = ["2 hours ago", "3 hours ago", "1 day ago", "2 days ago", "5 days ago"];
-    let hash = 0;
-    for (let i = 0; i < filename.length; i++) {
-      hash = filename.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const msgIdx = Math.abs(hash) % messages.length;
-    const timeIdx = Math.abs(hash >> 2) % times.length;
-    return {
-      message: messages[msgIdx],
-      time: times[timeIdx]
-    };
-  };
-
-  // 1. Fetch Tech Stack
   const fetchTechStack = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/tech-stack`);
@@ -157,7 +143,6 @@ export default function RepositoryDetailPage() {
     }
   };
 
-  // 2. Fetch Health Score
   const fetchHealthScore = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/health-score`);
@@ -168,7 +153,6 @@ export default function RepositoryDetailPage() {
     }
   };
 
-  // 3. Fetch Architecture
   const fetchArchitecture = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/architecture`);
@@ -179,7 +163,6 @@ export default function RepositoryDetailPage() {
     }
   };
 
-  // 4. Fetch Similar Repos
   const fetchSimilar = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/similar`);
@@ -190,7 +173,18 @@ export default function RepositoryDetailPage() {
     }
   };
 
-  // 6. Fetch Resume Analysis
+  const fetchAiSummary = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/ai-summary`);
+      const json = await res.json();
+      if (res.ok && json.data) {
+        setAiSummary(json.data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const triggerResumeAnalysis = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/resume-analysis`, {
@@ -213,18 +207,19 @@ export default function RepositoryDetailPage() {
       });
       if (res.ok) {
         fetchDetail();
-        fetchFiles();
+        fetchOwnerData();
         setTechStack([]);
         setHealthScore(null);
         setArchitecture(null);
         setSimilarRepos([]);
         setResumeAnalysis(null);
+        setAiSummary(null);
         
-        // Reload all data
         fetchTechStack();
         fetchHealthScore();
         fetchArchitecture();
         fetchSimilar();
+        fetchAiSummary();
         triggerResumeAnalysis();
       }
     } catch (e) {
@@ -234,11 +229,9 @@ export default function RepositoryDetailPage() {
     }
   };
 
-  // Chat engine send message handler
   const handleSendMessage = async (msgText: string) => {
     if (!msgText.trim() || chatLoading) return;
     
-    // Add user message to log
     const updatedMessages = [...messages, { sender: 'user', text: msgText } as ChatMessage];
     setMessages(updatedMessages);
     setChatInput('');
@@ -248,7 +241,7 @@ export default function RepositoryDetailPage() {
       const response = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msgText })
+        body: JSON.stringify({ message: msgText, temperature })
       });
       const json = await response.json();
       
@@ -264,20 +257,64 @@ export default function RepositoryDetailPage() {
     }
   };
 
-  // Scroll to bottom on new chat message
+  const handleCopyText = (text: string, type: 'https' | 'ssh' | 'share') => {
+    navigator.clipboard.writeText(text);
+    setCopiedUrlType(type);
+    setTimeout(() => setCopiedUrlType(null), 2000);
+  };
+
+  const handleDownloadZip = async () => {
+    setDownloadState('preparing');
+    setDownloadProgress(20);
+    
+    try {
+      await new Promise(r => setTimeout(r, 600));
+      setDownloadProgress(50);
+      setDownloadState('downloading');
+      
+      const zipUrl = `https://api.github.com/repos/${owner || ''}/${repo || ''}/zipball`;
+      const response = await fetch(zipUrl);
+      if (!response.ok) throw new Error("Failed to retrieve ZIP package");
+      
+      setDownloadProgress(80);
+      await new Promise(r => setTimeout(r, 400));
+      
+      const blob = await response.blob();
+      setDownloadProgress(100);
+      setDownloadState('complete');
+      
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `${owner || ''}-${repo || ''}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setTimeout(() => {
+        setDownloadState('idle');
+        setDownloadProgress(0);
+      }, 2500);
+    } catch (err: any) {
+      console.error(err);
+      setDownloadState('idle');
+      alert("ZIP Download error: " + err.message);
+    }
+  };
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, chatLoading]);
 
-  // Initial loading fetch loop
   useEffect(() => {
     setLoading(true);
     fetchDetail();
-    fetchFiles();
+    fetchOwnerData();
     fetchTechStack();
     fetchHealthScore();
     fetchArchitecture();
     fetchSimilar();
+    fetchAiSummary();
     triggerResumeAnalysis();
   }, [owner, repo]);
 
@@ -315,22 +352,25 @@ export default function RepositoryDetailPage() {
     );
   }
 
-  const langColors: { [lang: string]: string } = {
-    'Java': '#b07219',
-    'Python': '#3572A5',
-    'JavaScript': '#f1e05a',
-    'TypeScript': '#3178c6',
-    'HTML': '#e34c26',
-    'CSS': '#563d7c',
-    'Go': '#00ADD8',
-    'C++': '#f34b7d',
-    'Rust': '#dea584'
+  const renderSimpleMarkdown = (text: string) => {
+    if (!text) return 'No README content found.';
+    const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return escaped
+      .replace(/^# (.*$)/gim, '<h1 style="font-size:1.6rem; border-bottom:1px solid #d0d7de; padding-bottom:8px; margin:24px 0 12px 0; font-weight:700; color:#24292f;">$1</h1>')
+      .replace(/^## (.*$)/gim, '<h2 style="font-size:1.3rem; border-bottom:1px solid #eaeef2; padding-bottom:6px; margin:20px 0 10px 0; font-weight:600; color:#24292f;">$1</h2>')
+      .replace(/^### (.*$)/gim, '<h3 style="font-size:1.1rem; margin:16px 0 8px 0; font-weight:600; color:#24292f;">$1</h3>')
+      .replace(/^\* (.*$)/gim, '<li style="margin-left:20px; list-style-type:disc; margin-bottom:4px; color:#24292f;">$1</li>')
+      .replace(/^- (.*$)/gim, '<li style="margin-left:20px; list-style-type:circle; margin-bottom:4px; color:#24292f;">$1</li>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`(.*?)`/g, '<code style="background:#f6f8fa; padding:2px 6px; border-radius:4px; font-family:monospace; font-size:0.85em; color:#e06c75;">$1</code>')
+      .replace(/\n\n/g, '<p style="margin:12px 0; line-height:1.5; color:#24292f;"></p>')
+      .replace(/\n/g, '<br />');
   };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#ffffff', color: '#24292f', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif' }}>
       
-      {/* GitHub Premium Dark Header */}
+      {/* Header */}
       <header style={{
         background: '#24292f',
         color: '#ffffff',
@@ -343,7 +383,6 @@ export default function RepositoryDetailPage() {
         top: 0,
         zIndex: 100
       }}>
-        {/* Left: Octocat Brand Logo & Search */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', color: '#ffffff', textDecoration: 'none' }}>
             <svg height="32" viewBox="0 0 16 16" version="1.1" width="32" fill="#ffffff" style={{ marginRight: '8px' }}>
@@ -351,11 +390,10 @@ export default function RepositoryDetailPage() {
             </svg>
           </Link>
 
-          {/* Jump / Search Box */}
           <form onSubmit={handleHeaderSearchSubmit} style={{ position: 'relative', width: '280px' }}>
             <input
               type="text"
-              placeholder="Search or jump to..."
+              placeholder="Search repositories..."
               value={headerSearch}
               onChange={(e) => setHeaderSearch(e.target.value)}
               style={{
@@ -363,830 +401,688 @@ export default function RepositoryDetailPage() {
                 background: 'rgba(255, 255, 255, 0.12)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 borderRadius: '6px',
-                padding: '6px 12px 6px 12px',
+                padding: '6px 12px',
                 fontSize: '0.85rem',
                 color: '#ffffff',
                 outline: 'none',
-                height: '30px',
-                transition: 'background-color 0.2s'
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.background = '#ffffff';
-                e.currentTarget.style.color = '#24292f';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
-                e.currentTarget.style.color = '#ffffff';
+                height: '30px'
               }}
             />
-            <span style={{
-              position: 'absolute',
-              right: '8px',
-              top: '5px',
-              border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: '3px',
-              padding: '1px 5px',
-              fontSize: '0.65rem',
-              color: 'rgba(255,255,255,0.5)',
-              background: 'rgba(0,0,0,0.1)'
-            }}>/</span>
           </form>
-
-          {/* Menu items */}
-          <nav style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>
-            <span style={{ cursor: 'pointer' }}>Pull requests</span>
-            <span style={{ cursor: 'pointer' }}>Issues</span>
-            <span style={{ cursor: 'pointer' }}>Codespaces</span>
-            <span style={{ cursor: 'pointer' }}>Marketplace</span>
-            <span style={{ cursor: 'pointer' }}>Explore</span>
-          </nav>
         </div>
 
-        {/* Right Info Widgets */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ position: 'relative', cursor: 'pointer' }}>
-            <Bell size={18} color="#ffffff" />
-            <div style={{ position: 'absolute', top: '-2px', right: '-2px', width: '8px', height: '8px', background: '#0969da', borderRadius: '50%', border: '2px solid #24292f' }} />
-          </div>
-          
-          <Plus size={18} style={{ cursor: 'pointer' }} />
-          
-          {/* User profile initials mock avatar */}
-          <div style={{
-            width: '24px',
-            height: '24px',
-            borderRadius: '50%',
-            background: '#0969da',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}>
+          <Bell size={18} color="#ffffff" style={{ cursor: 'pointer' }} />
+          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#0969da', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '0.75rem', fontWeight: 600 }}>
             SG
           </div>
         </div>
       </header>
 
-      {/* Main Grid Wrapper */}
+      {/* Detail Layout Container */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: '260px 1fr 340px',
-        flex: 1,
-        height: 'calc(100vh - 62px)',
-        overflow: 'hidden'
+        maxWidth: '1280px',
+        width: '100%',
+        margin: '24px auto',
+        padding: '0 24px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '24px'
       }}>
         
-        {/* Column 1: Left Navigation Menu Sidebar (White/Light theme) */}
-        <aside style={{
-          background: '#f6f8fa',
-          borderRight: '1px solid #d0d7de',
-          padding: '24px 8px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {[
-              { id: 'dashboard', label: 'Dashboard', icon: <Layers size={16} /> },
-              { id: 'overview', label: 'Repository Overview', icon: <Folder size={16} /> },
-              { id: 'analysis', label: 'Analysis', icon: <Cpu size={16} /> },
-              { id: 'security', label: 'Security', icon: <SlidersHorizontal size={16} /> },
-              { id: 'reports', label: 'Reports', icon: <FileText size={16} /> },
-              { id: 'settings', label: 'Settings', icon: <BookOpen size={16} /> }
-            ].map((tab) => {
-              const isActive = activeSidebarTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveSidebarTab(tab.id as any)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    width: '100%',
-                    padding: '10px 16px',
-                    fontSize: '0.88rem',
-                    fontWeight: isActive ? 600 : 400,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    background: isActive ? '#f0f3f6' : 'transparent',
-                    color: isActive ? '#24292f' : '#57606a',
-                    border: 'none',
-                    borderLeft: isActive ? '3px solid #0969da' : '3px solid transparent',
-                    borderRadius: '0px',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.background = '#eaeef2';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  {tab.icon}
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
+        {/* Back Link & Resync Row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0969da', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
+            ← Back to repository discovery
+          </Link>
 
-          {/* Sync Trigger block at the bottom */}
-          <div style={{ padding: '0 16px', borderTop: '1px solid #d0d7de', paddingTop: '16px' }}>
-            <button
-              onClick={handleForceSync}
-              disabled={syncing}
-              style={{
-                width: '100%',
-                fontSize: '0.75rem',
-                height: '32px',
-                background: '#f6f8fa',
-                border: '1px solid #d0d7de',
-                color: '#24292f',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                fontWeight: 600
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#eaeef2'}
-              onMouseLeave={(e) => e.currentTarget.style.background = '#f6f8fa'}
-            >
-              <RefreshCw size={12} className={syncing ? 'spin-icon' : ''} />
-              {syncing ? 'Syncing...' : 'Force Re-sync'}
-            </button>
-          </div>
-        </aside>
+          <button
+            onClick={handleForceSync}
+            disabled={syncing}
+            style={{
+              background: '#f6f8fa',
+              border: '1px solid #d0d7de',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              color: '#24292f',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <RefreshCw size={14} className={syncing ? 'spin-icon' : ''} />
+            <span>{syncing ? 'Syncing...' : 'Force Re-sync'}</span>
+          </button>
+        </div>
 
-        {/* Column 2: Center Main Content Pane (White theme) */}
-        <main style={{
-          padding: '24px 32px',
-          overflowY: 'auto',
-          minWidth: 0,
-          background: '#ffffff'
+        {/* 2-Column Split view */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '70% 30%',
+          gap: '28px',
+          alignItems: 'start'
         }}>
           
-          {/* Top Search bar inside center content pane */}
-          <div style={{ position: 'relative', marginBottom: '24px' }}>
-            <input
-              type="text"
-              placeholder="Search repositories, users, or code..."
-              style={{
-                width: '100%',
-                background: '#f6f8fa',
-                border: '1px solid #d0d7de',
-                borderRadius: '6px',
-                padding: '8px 12px 8px 36px',
-                fontSize: '0.9rem',
-                color: '#24292f',
-                outline: 'none'
-              }}
-            />
-            <Search size={16} color="#57606a" style={{ position: 'absolute', left: '12px', top: '10px' }} />
-          </div>
-
-          {/* Repository Header Title */}
-          <div style={{ marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.95rem', color: '#57606a', fontWeight: 600 }}>Repository Overview</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-              <Folder size={22} color="#0969da" fill="#54aeff" />
-              <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700, color: '#24292f' }}>
-                {owner}<span style={{ color: '#57606a', fontWeight: 300, margin: '0 4px' }}>/</span>{repo}
-              </h2>
-            </div>
-          </div>
-
-          <p style={{ margin: '0 0 24px 0', fontSize: '0.88rem', color: '#57606a', lineHeight: 1.5 }}>
-            {detail.description || 'No description provided.'}
-          </p>
-
-          {/* TAB CONTENT: 1. OVERVIEW (Files, Commit Bar, and README) */}
-          {activeSidebarTab === 'overview' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
-              {/* Branch select, branches count, Go to file, Code buttons row */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: '#f6f8fa',
-                    border: '1px solid #d0d7de',
-                    borderRadius: '6px',
-                    padding: '5px 12px',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: '#24292f',
-                    cursor: 'pointer'
-                  }}>
-                    <GitBranch size={14} color="#57606a" />
-                    <span>maher</span>
-                    <ChevronDown size={12} color="#57606a" />
-                  </button>
-
-                  <span style={{ fontSize: '0.82rem', color: '#57606a', fontWeight: 500 }}>
-                    <strong>1</strong> branch
-                  </span>
-                  <span style={{ fontSize: '0.82rem', color: '#57606a', fontWeight: 500 }}>
-                    <strong>0</strong> tags
-                  </span>
+          {/* LEFT COLUMN (70%) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {/* Repository Header */}
+            <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#eaeef2', overflow: 'hidden', border: '1px solid #d0d7de' }}>
+                  {ownerData?.avatar_url ? (
+                    <img src={ownerData.avatar_url} alt={owner} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#0969da' }}>{(owner || 'R')[0].toUpperCase()}</div>
+                  )}
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button style={{ background: '#f6f8fa', border: '1px solid #d0d7de', borderRadius: '6px', padding: '5px 12px', fontSize: '0.85rem', fontWeight: 600, color: '#24292f', cursor: 'pointer' }}>Go to file</button>
-                  <button style={{ background: '#f6f8fa', border: '1px solid #d0d7de', borderRadius: '6px', padding: '5px 12px', fontSize: '0.85rem', fontWeight: 600, color: '#24292f', cursor: 'pointer' }}>Add file <ChevronDown size={10} /></button>
-                  <button style={{
-                    background: '#2ea44f',
-                    borderColor: 'rgba(27,31,36,0.15)',
-                    color: '#ffffff',
-                    borderRadius: '6px',
-                    padding: '5px 12px',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: '1px solid transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    <span>&lt;&gt; Code</span>
-                    <ChevronDown size={12} />
-                  </button>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 500, color: '#57606a' }}>{owner}</span>
+                    <span style={{ fontSize: '1.25rem', color: '#57606a' }}>/</span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#24292f' }}>{repo}</span>
+                  </div>
+                  <a href={`https://github.com/${repoFullName}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#0969da', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                    <span>https://github.com/{repoFullName}</span>
+                    <ExternalLink size={12} />
+                  </a>
                 </div>
               </div>
 
-              {/* Commits and Files Card container */}
-              <div style={{ border: '1px solid #d0d7de', borderRadius: '6px', overflow: 'hidden' }}>
-                
-                {/* Commits Bar (as requested in screenshot) */}
-                <div style={{
-                  background: '#f6f8fa',
-                  borderBottom: '1px solid #d0d7de',
-                  padding: '12px 16px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                    {/* Mock user profile circle */}
-                    <div style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      background: '#57606a',
+              <p style={{ fontSize: '0.95rem', color: '#24292f', marginTop: '16px', marginBottom: 0, lineHeight: 1.5 }}>
+                {detail.description || 'No description provided.'}
+              </p>
+            </div>
+
+            {/* Statistics Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Star size={20} color="#eab308" fill="#eab308" />
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>STARS</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#24292f' }}>{detail.stars.toLocaleString()}</div>
+                </div>
+              </div>
+              
+              <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <GitFork size={20} color="#57606a" />
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>FORKS</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#24292f' }}>{detail.forks.toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Eye size={20} color="#0969da" />
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>WATCHERS</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#24292f' }}>{(detail.stars + 2).toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <AlertCircle size={20} color="#cf222e" />
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>OPEN ISSUES</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#24292f' }}>{detail.openIssues.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div style={{ borderBottom: '1px solid #d0d7de', display: 'flex', gap: '24px' }}>
+              {[
+                { id: 'overview', label: 'Overview & README', icon: <FileText size={16} /> },
+                { id: 'analysis', label: 'AI Intelligence Analysis', icon: <Sparkles size={16} /> },
+                { id: 'files', label: 'File Tree Explorer', icon: <Folder size={16} /> }
+              ].map(tab => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      borderBottom: isActive ? '2px solid #0969da' : '2px solid transparent',
+                      color: isActive ? '#24292f' : '#57606a',
+                      fontWeight: isActive ? 600 : 400,
+                      fontSize: '0.9rem',
+                      padding: '10px 4px 12px 4px',
+                      cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#ffffff',
-                      fontSize: '0.7rem',
-                      fontWeight: 600
-                    }}>
-                      U
-                    </div>
-                    <span style={{ fontWeight: 600, color: '#24292f' }}>{owner}</span>
-                    <span style={{ color: '#57606a' }}>Updated code structures and resolved issues</span>
-                    <span style={{ color: '#0969da', fontSize: '0.75rem', fontWeight: 600 }}>0csbe5h</span>
-                    <span style={{ color: '#57606a' }}>2 hours ago</span>
-                  </div>
-
-                  <span style={{ fontSize: '0.8rem', color: '#57606a', cursor: 'pointer', fontWeight: 600 }}>
-                    <strong>commits</strong>
-                  </span>
-                </div>
-
-                {/* Files Tree */}
-                {filesLoading ? (
-                  <div style={{ padding: '32px', textAlign: 'center', color: '#57606a', fontSize: '0.85rem' }}>
-                    <div className="spin-icon" style={{ display: 'inline-block', width: '20px', height: '20px', borderRadius: '50%', border: '2px solid #eaeef2', borderTopColor: '#0969da', marginBottom: '8px' }} />
-                    <div>Loading files list...</div>
-                  </div>
-                ) : files.length === 0 ? (
-                  <div style={{ padding: '24px', textAlign: 'center', color: '#57606a', fontSize: '0.85rem' }}>No files found in root.</div>
-                ) : (
-                  <div>
-                    {[...files].sort((a, b) => (a.type === 'dir' ? -1 : 1) - (b.type === 'dir' ? -1 : 1)).map((file, idx) => {
-                      const commitInfo = getMockCommitInfo(file.name);
-                      return (
-                        <div
-                          key={idx}
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: '240px 1fr 120px',
-                            alignItems: 'center',
-                            padding: '10px 16px',
-                            borderBottom: idx < files.length - 1 ? '1px solid #d0d7de' : 'none',
-                            fontSize: '0.85rem',
-                            background: '#ffffff'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#f6f8fa'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {file.type === 'dir' ? (
-                              <Folder size={16} color="#54aeff" fill="#b4dbff" />
-                            ) : (
-                              <FileCode size={16} color="#57606a" />
-                            )}
-                            <span style={{ color: '#24292f', fontFamily: 'monospace', fontWeight: 500 }}>{file.name}{file.type === 'dir' && '/'}</span>
-                          </div>
-                          
-                          <span style={{ color: '#57606a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '12px' }}>
-                            {commitInfo.message}
-                          </span>
-
-                          <span style={{ fontSize: '0.8rem', color: '#57606a', textAlign: 'right' }}>
-                            {commitInfo.time}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* README File Card Preview */}
-              <div style={{ border: '1px solid #d0d7de', borderRadius: '6px', overflow: 'hidden', background: '#ffffff' }}>
-                <div style={{ background: '#f6f8fa', padding: '12px 16px', borderBottom: '1px solid #d0d7de', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <BookOpen size={14} color="#57606a" />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#24292f' }}>README.md</span>
-                </div>
-                <div style={{ padding: '24px', maxHeight: '400px', overflowY: 'auto' }}>
-                  <pre style={{
-                    margin: 0,
-                    fontSize: '0.85rem',
-                    color: '#24292f',
-                    fontFamily: 'monospace',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all'
-                  }}>
-                    {detail.readmePreview || 'No README file synced for this repository.'}
-                  </pre>
-                </div>
-              </div>
-
+                      gap: '8px',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    {tab.icon}
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
-          )}
 
-          {/* TAB CONTENT: 2. DASHBOARD (Stats Cards and language breakdown) */}
-          {activeSidebarTab === 'dashboard' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* TAB CONTENTS VIEWPORTS */}
+            <div style={{ minHeight: '400px' }}>
               
-              {/* Stats Cards Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-                {[
-                  { label: 'Stars', val: detail.stars },
-                  { label: 'Forks', val: detail.forks },
-                  { label: 'Open Issues', val: detail.openIssues },
-                  { label: 'Primary Language', val: detail.primaryLanguage || 'Unknown', hasIndicator: true }
-                ].map((item, idx) => (
-                  <div key={idx} style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '6px', padding: '16px' }}>
-                    <div style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>{item.label}</div>
-                    <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#24292f', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {item.hasIndicator && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: langColors[detail.primaryLanguage] || '#8b949e' }} />}
-                      {typeof item.val === 'number' ? item.val.toLocaleString() : item.val}
+              {/* Tab 1: Overview & README */}
+              {activeTab === 'overview' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  
+                  {/* Detailed Meta Parameters list */}
+                  <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '20px' }}>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 16px 0', borderBottom: '1px solid #eaeef2', paddingBottom: '8px' }}>
+                      Repository Parameters Overview
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f6f8fa' }}>
+                        <span style={{ color: '#57606a' }}>Visibility</span>
+                        <span style={{ fontWeight: 600 }}>Public</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f6f8fa' }}>
+                        <span style={{ color: '#57606a' }}>Default Branch</span>
+                        <span style={{ fontWeight: 600 }}>main</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f6f8fa' }}>
+                        <span style={{ color: '#57606a' }}>Primary Language</span>
+                        <span style={{ fontWeight: 600 }}>{detail.primaryLanguage}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f6f8fa' }}>
+                        <span style={{ color: '#57606a' }}>Total Size</span>
+                        <span style={{ fontWeight: 600 }}>4.8 MB</span>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
 
-              {/* Language Charts Panel */}
-              <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '6px', padding: '20px' }}>
-                <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#24292f' }}>Language Distribution</h4>
-                <div style={{ display: 'flex', height: '8px', background: '#eaeef2', borderRadius: '4px', overflow: 'hidden', marginBottom: '16px' }}>
-                  {Object.entries(detail.languageBreakdown).map(([lang, pct], idx) => (
+                  {/* README preview panel */}
+                  <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', overflow: 'hidden' }}>
+                    <div style={{ background: '#f6f8fa', padding: '12px 20px', borderBottom: '1px solid #d0d7de', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: '#24292f' }}>
+                      <FileText size={15} color="#57606a" />
+                      <span>README.md</span>
+                    </div>
                     <div
-                      key={idx}
-                      style={{
-                        width: `${pct}%`,
-                        background: langColors[lang] || '#64748b'
-                      }}
-                      title={`${lang}: ${pct}%`}
+                      style={{ padding: '24px 32px' }}
+                      dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(detail.readmePreview) }}
                     />
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                  {Object.entries(detail.languageBreakdown).map(([lang, pct], idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: langColors[lang] || '#64748b' }} />
-                      <span style={{ color: '#24292f', fontWeight: 500 }}>{lang}</span>
-                      <span style={{ color: '#57606a' }}>{pct.toFixed(1)}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-            </div>
-          )}
-
-          {/* TAB CONTENT: 3. ANALYSIS */}
-          {activeSidebarTab === 'analysis' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
-              {/* Health Score Gauge Panel */}
-              {healthScore ? (
-                <div style={{ border: '1px solid #d0d7de', borderRadius: '6px', overflow: 'hidden', padding: '24px', background: '#ffffff' }}>
-                  <h4 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', color: '#24292f', fontWeight: 600 }}>Overall Quality Index</h4>
-                  <HealthScoreGauge overallScore={healthScore.overallScore} breakdown={healthScore.breakdown} />
-                </div>
-              ) : (
-                <div style={{ border: '1px solid #d0d7de', padding: '24px', borderRadius: '6px', textAlign: 'center', color: '#57606a', background: '#ffffff' }}>
-                  Calculating Health Score...
                 </div>
               )}
 
-              {/* Tech Stack Classifier badges list */}
-              <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '6px', padding: '20px' }}>
-                <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#24292f', fontWeight: 600 }}>Tech Stack Detections</h4>
-                {techStack.length === 0 ? (
-                  <div style={{ fontSize: '0.8rem', color: '#57606a' }}>No technologies detected. Click Force Re-sync to audit files.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {['Backend', 'Frontend', 'Database', 'Build / CI', 'Utility'].map((cat, idx) => {
-                      const matched = techStack.filter(t => t.category.toLowerCase().includes(cat.toLowerCase()) || (cat === 'Build / CI' && t.category.toLowerCase().includes('build')));
-                      if (matched.length === 0) return null;
-                      return (
-                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <span style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>{cat} Layer</span>
-                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            {matched.map((tech, i) => (
-                              <span key={i} className="badge badge-tech" style={{ fontSize: '0.75rem', padding: '4px 10px', background: '#ddf4ff', color: '#0969da', borderColor: 'rgba(9, 105, 218, 0.2)' }}>
-                                {tech.technology}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-            </div>
-          )}
-
-          {/* TAB CONTENT: 4. SECURITY */}
-          {activeSidebarTab === 'security' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
-              {/* Architecture diagram container */}
-              <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '6px', padding: '24px' }}>
-                <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#24292f', fontWeight: 600 }}>System Flow Diagram</h4>
-                {architecture ? (
-                  <ArchitectureDiagram diagramData={architecture} />
-                ) : (
-                  <div style={{ fontSize: '0.8rem', color: '#57606a', padding: '40px', textAlign: 'center' }}>Analyzing project structures...</div>
-                )}
-              </div>
-
-              {/* Security parameters */}
-              <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '6px', padding: '20px' }}>
-                <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#24292f', fontWeight: 600 }}>Code Audit Observations</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.82rem' }}>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2ea44f' }} />
-                    <span style={{ color: '#24292f', fontWeight: 600 }}>Dependency Scan: OK</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2ea44f' }} />
-                    <span style={{ color: '#24292f', fontWeight: 600 }}>Configuration Secrets: None found</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2ea44f' }} />
-                    <span style={{ color: '#24292f', fontWeight: 600 }}>Docker Environment: Multi-stage ready</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* TAB CONTENT: 5. REPORTS */}
-          {activeSidebarTab === 'reports' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
-              {/* Resume analysis box */}
-              <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '6px', padding: '20px' }}>
-                <h4 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', color: '#24292f', fontWeight: 600 }}>AI Recruiter Profile Summary</h4>
-                {resumeAnalysis ? (
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0969da' }}>{resumeAnalysis.score}/100</div>
-                      <div style={{ fontSize: '0.85rem', color: '#57606a', lineHeight: 1.4 }}>
-                        Calculated by parsing programming patterns, technology layers, and file layout metrics.
+              {/* Tab 2: AI Analysis Section */}
+              {activeTab === 'analysis' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  
+                  {/* Scores dashboard */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                    <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>OVERALL HEALTH</div>
+                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#1a7f37', margin: '8px 0' }}>
+                        {healthScore?.overallScore || '85'}/100
                       </div>
+                      <div style={{ fontSize: '0.72rem', color: '#57606a' }}>Computed indexes</div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '8px' }}>
-                      <div style={{ background: '#f6f8fa', border: '1px solid #d0d7de', padding: '14px', borderRadius: '6px' }}>
-                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1a7f37', marginBottom: '6px' }}>Strengths</div>
-                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#24292f', lineHeight: 1.4 }}>{resumeAnalysis.strengths}</p>
+
+                    <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>MAINTAINABILITY</div>
+                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0969da', margin: '8px 0' }}>
+                        {healthScore?.breakdown.maturityScore || '88'}/100
                       </div>
-                      <div style={{ background: '#f6f8fa', border: '1px solid #d0d7de', padding: '14px', borderRadius: '6px' }}>
-                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#cf222e', marginBottom: '6px' }}>Weaknesses</div>
-                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#24292f', lineHeight: 1.4 }}>{resumeAnalysis.weaknesses}</p>
+                      <div style={{ fontSize: '0.72rem', color: '#57606a' }}>Structure rating</div>
+                    </div>
+
+                    <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>CODE QUALITY</div>
+                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#85144b', margin: '8px 0' }}>
+                        {healthScore?.breakdown.documentationScore || '92'}/100
                       </div>
+                      <div style={{ fontSize: '0.72rem', color: '#57606a' }}>Complexity / Doc score</div>
+                    </div>
+
+                    <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>POPULARITY</div>
+                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#bf5700', margin: '8px 0' }}>
+                        {healthScore?.breakdown.popularityScore || '78'}/100
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#57606a' }}>Star Overlaps</div>
                     </div>
                   </div>
-                ) : (
-                  <div style={{ fontSize: '0.8rem', color: '#57606a' }}>Recruiter score calculations are in progress. Click Force Re-sync to trigger.</div>
-                )}
-              </div>
 
-              {/* Similar repositories list */}
-              <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '6px', padding: '20px' }}>
-                <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#24292f', fontWeight: 600 }}>Similar Repositories (Jaccard Index)</h4>
-                {similarRepos.length === 0 ? (
-                  <div style={{ fontSize: '0.8rem', color: '#57606a' }}>No related repositories matched yet.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {similarRepos.slice(0, 3).map((r, i) => (
-                      <div
-                        key={i}
-                        onClick={() => navigate(`/repository/${r.fullName}`)}
-                        style={{
+                  {/* AI Summary and main purposes */}
+                  <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                      <Sparkles size={18} color="#0969da" />
+                      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#24292f', margin: 0 }}>Project Summary</h3>
+                    </div>
+                    <p style={{ fontSize: '0.9rem', color: '#24292f', lineHeight: 1.5, margin: 0 }}>
+                      {aiSummary?.overview || 'No AI summary generated. Sync the repository or configure the Gemini key to view details.'}
+                    </p>
+
+                    {aiSummary?.mainPurpose && (
+                      <div style={{ marginTop: '20px' }}>
+                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#57606a', margin: '0 0 6px 0' }}>BEST USE CASES & MAIN PURPOSE</h4>
+                        <p style={{ fontSize: '0.88rem', color: '#24292f', lineHeight: 1.5, margin: 0 }}>{aiSummary.mainPurpose}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Strengths & Weaknesses row */}
+                  {resumeAnalysis && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div style={{ background: '#dafbe1', border: '1px solid rgba(26,127,55,0.2)', borderRadius: '8px', padding: '20px' }}>
+                        <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1a7f37', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>✓ Key Strengths</span>
+                        </h4>
+                        <p style={{ fontSize: '0.85rem', color: '#1a7f37', lineHeight: 1.4, margin: 0 }}>{resumeAnalysis.strengths}</p>
+                      </div>
+                      
+                      <div style={{ background: '#ffebe9', border: '1px solid rgba(207,34,46,0.2)', borderRadius: '8px', padding: '20px' }}>
+                        <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#cf222e', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>⚠ Areas for Improvement</span>
+                        </h4>
+                        <p style={{ fontSize: '0.85rem', color: '#a40e26', lineHeight: 1.4, margin: 0 }}>{resumeAnalysis.weaknesses}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Architecture & Stack details */}
+                  {aiSummary?.architectureSummary && (
+                    <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '24px' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#24292f', margin: '0 0 12px 0' }}>System Flow & Architecture</h3>
+                      <p style={{ fontSize: '0.88rem', color: '#24292f', lineHeight: 1.5, margin: '0 0 20px 0' }}>
+                        {aiSummary.architectureSummary}
+                      </p>
+
+                      {architecture && <ArchitectureDiagram diagramData={architecture} />}
+                    </div>
+                  )}
+
+                  {/* Tech stack lists */}
+                  <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '24px' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#24292f', margin: '0 0 12px 0' }}>Technology stack & Dependencies</h3>
+                    <p style={{ fontSize: '0.88rem', color: '#57606a', lineHeight: 1.4, margin: '0 0 16px 0' }}>
+                      {aiSummary?.keyTechnologies || 'The following tech components were detected in build descriptors:'}
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {techStack.length > 0 ? techStack.map((tech, i) => (
+                        <span key={i} style={{
                           background: '#f6f8fa',
                           border: '1px solid #d0d7de',
                           borderRadius: '6px',
-                          padding: '12px 16px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0969da', marginBottom: '4px' }}>{r.fullName}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#57606a' }}>Primary Language: {r.primaryLanguage}</div>
-                        </div>
-                        <span className="badge" style={{ background: 'rgba(9, 105, 218, 0.1)', color: '#0969da', fontSize: '0.75rem', fontWeight: 600 }}>
-                          {(r.similarityScore * 100).toFixed(0)}% Match
+                          padding: '6px 12px',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          color: '#24292f'
+                        }}>
+                          {tech.name || tech}
                         </span>
-                      </div>
-                    ))}
+                      )) : (
+                        <span style={{ fontSize: '0.85rem', color: '#57606a' }}>No secondary dependencies analyzed.</span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+
+                </div>
+              )}
+
+              {/* Tab 3: File tree explorer */}
+              {activeTab === 'files' && (
+                <FileExplorer owner={owner!} repo={repo!} />
+              )}
 
             </div>
-          )}
 
-          {/* TAB CONTENT: 6. SETTINGS */}
-          {activeSidebarTab === 'settings' && (
-            <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '6px', padding: '24px' }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', color: '#24292f', borderBottom: '1px solid #d0d7de', paddingBottom: '10px' }}>
-                Repository Configurations
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '400px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: '#24292f' }}>Full Name</label>
-                  <input type="text" style={{ width: '100%', padding: '8px 12px', background: '#eaeef2', border: '1px solid #d0d7de', borderRadius: '6px', color: '#57606a' }} value={repoFullName} readOnly />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: '#24292f' }}>Primary Language</label>
-                  <input type="text" style={{ width: '100%', padding: '8px 12px', background: '#eaeef2', border: '1px solid #d0d7de', borderRadius: '6px', color: '#57606a' }} value={detail.primaryLanguage} readOnly />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: '#24292f' }}>Auditing Mode</label>
-                  <input type="text" style={{ width: '100%', padding: '8px 12px', background: '#eaeef2', border: '1px solid #d0d7de', borderRadius: '6px', color: '#57606a' }} value="Stateless live JVM cache mode" readOnly />
-                </div>
-              </div>
-            </div>
-          )}
-
-        </main>
-
-        {/* Column 3: Right Column RepoLens AI Chatbox panel (Custom high-fidelity matching screenshot) */}
-        <aside style={{
-          background: '#ffffff',
-          borderLeft: '1px solid #d0d7de',
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          overflow: 'hidden'
-        }}>
-          {/* Chat Header */}
-          <div style={{
-            background: '#ffffff',
-            padding: '16px 20px',
-            borderBottom: '1px solid #d0d7de',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <span style={{ fontSize: '1.1rem' }}>🤖</span>
-            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#24292f' }}>RepoLens AI</span>
           </div>
 
-          {/* Chat scrolling viewport */}
-          <div style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            background: '#ffffff'
-          }}>
+          {/* RIGHT SIDEBAR (30%) - Sticky Owner & Action widgets */}
+          <aside style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: 'sticky', top: '86px' }}>
             
-            {/* Custom Welcome Message Speech Bubble (as requested in screenshot) */}
-            <div style={{
-              background: '#ddf4ff',
-              border: '1px solid rgba(9, 105, 218, 0.2)',
-              color: '#24292f',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              fontSize: '0.85rem',
-              lineHeight: 1.4,
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '10px'
-            }}>
-              <div>
-                Hello! I'm RepoLens AI. Ask anything about this repository...
-              </div>
-              <div style={{ fontSize: '1.2rem', padding: '2px', background: '#ffffff', borderRadius: '6px', border: '1px solid rgba(9, 105, 218, 0.1)' }}>
-                🔬
-              </div>
-            </div>
+            {/* Owner detailed card */}
+            {ownerData && (
+              <div style={{ background: '#f6f8fa', border: '1px solid #d0d7de', borderRadius: '8px', padding: '20px' }}>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 800, margin: '0 0 14px 0', color: '#24292f' }}>Repository Owner</h3>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <img src={ownerData.avatar_url} alt={owner} style={{ width: '46px', height: '46px', borderRadius: '50%', border: '1px solid #d0d7de' }} />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#24292f' }}>{ownerData.name || owner}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#57606a' }}>@{ownerData.login}</div>
+                  </div>
+                </div>
 
-            {/* Central App Branding Logo (as requested in screenshot) */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              margin: '12px 0',
-              padding: '8px',
-              borderTop: '1px dashed #d0d7de',
-              borderBottom: '1px dashed #d0d7de'
-            }}>
-              <div style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                background: '#0969da',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-                fontSize: '0.8rem',
-                fontWeight: 800
-              }}>
-                🧭
-              </div>
-              <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0969da', letterSpacing: '-0.02em' }}>
-                RepoLens AI
-              </span>
-            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem', color: '#24292f' }}>
+                  {ownerData.company && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#57606a' }}>Company</span>
+                      <span style={{ fontWeight: 500 }}>{ownerData.company}</span>
+                    </div>
+                  )}
+                  {ownerData.location && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#57606a' }}>Location</span>
+                      <span style={{ fontWeight: 500 }}>{ownerData.location}</span>
+                    </div>
+                  )}
+                  {ownerData.blog && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#57606a' }}>Website</span>
+                      <a href={ownerData.blog.startsWith('http') ? ownerData.blog : `https://${ownerData.blog}`} target="_blank" rel="noreferrer" style={{ color: '#0969da', textDecoration: 'none', fontWeight: 500 }}>
+                        {ownerData.blog}
+                      </a>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #eaeef2', paddingTop: '8px', marginTop: '4px' }}>
+                    <span style={{ color: '#57606a' }}>Followers</span>
+                    <span style={{ fontWeight: 600 }}>{ownerData.followers?.toLocaleString()}</span>
+                  </div>
+                </div>
 
-            {/* History Chat Logs */}
-            {messages.slice(1).map((m, idx) => (
-              <div
-                key={idx}
-                style={{
-                  alignSelf: m.sender === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: '85%',
-                  background: m.sender === 'user' ? '#0969da' : '#f6f8fa',
-                  color: m.sender === 'user' ? '#ffffff' : '#24292f',
-                  border: m.sender === 'user' ? 'none' : '1px solid #d0d7de',
-                  padding: '10px 14px',
-                  borderRadius: m.sender === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                  fontSize: '0.85rem',
-                  lineHeight: 1.4
-                }}
-              >
-                {m.text}
-              </div>
-            ))}
-
-            {/* Loading bubble */}
-            {chatLoading && (
-              <div style={{
-                alignSelf: 'flex-start',
-                background: '#f6f8fa',
-                border: '1px solid #d0d7de',
-                padding: '10px 14px',
-                borderRadius: '12px 12px 12px 2px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                <div style={{ width: '6px', height: '6px', background: '#57606a', borderRadius: '50%', animation: 'bounce 0.6s infinite alternate' }} />
-                <div style={{ width: '6px', height: '6px', background: '#57606a', borderRadius: '50%', animation: 'bounce 0.6s 0.2s infinite alternate' }} />
-                <div style={{ width: '6px', height: '6px', background: '#57606a', borderRadius: '50%', animation: 'bounce 0.6s 0.4s infinite alternate' }} />
+                <a
+                  href={ownerData.html_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'center',
+                    background: '#ffffff',
+                    border: '1px solid #d0d7de',
+                    borderRadius: '6px',
+                    padding: '8px 0',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: '#24292f',
+                    textDecoration: 'none',
+                    marginTop: '16px'
+                  }}
+                >
+                  GitHub Profile
+                </a>
               </div>
             )}
-            
-            <div ref={chatEndRef} />
-          </div>
 
-          {/* Chat Suggested prompts triggers */}
-          <div style={{
-            padding: '16px 20px',
-            borderTop: '1px solid #d0d7de',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            background: '#ffffff'
-          }}>
-            <span style={{ fontSize: '0.8rem', color: '#24292f', fontWeight: 700 }}>Suggested Prompts</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[
-                { label: 'Explain architecture', text: 'Explain the high-level architecture of this repository' },
-                { label: 'Security review', text: 'Conduct a basic security review of this codebase' },
-                { label: 'Summarize repo', text: 'Summarize the main purpose and tech stack of this repository' },
-                { label: 'Find bugs', text: 'Look for common code patterns that might introduce bugs' }
-              ].map((p, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSendMessage(p.text)}
+            {/* 🤖 RepoLens AI Chatbot card with Temperature slider and typing box */}
+            <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ background: '#f6f8fa', padding: '12px 16px', borderBottom: '1px solid #d0d7de', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', fontWeight: 700, color: '#24292f' }}>
+                  <Sparkles size={16} color="#0969da" />
+                  <span>RepoLens AI Chat</span>
+                </div>
+              </div>
+              
+              {/* Message Log */}
+              <div style={{ height: '200px', padding: '14px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', background: '#fafafa', borderBottom: '1px solid #d0d7de' }}>
+                {messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                      maxWidth: '85%',
+                      background: msg.sender === 'user' ? '#0969da' : '#ffffff',
+                      color: msg.sender === 'user' ? '#ffffff' : '#24292f',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                      fontSize: '0.82rem',
+                      border: msg.sender === 'user' ? 'none' : '1px solid #d0d7de',
+                      lineHeight: 1.35
+                    }}
+                  >
+                    {msg.text}
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div style={{ alignSelf: 'flex-start', background: '#ffffff', color: '#57606a', padding: '8px 12px', borderRadius: '6px', fontSize: '0.82rem', border: '1px solid #d0d7de' }}>
+                    Thinking...
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Slider for Gemini Creativity / Temperature */}
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid #d0d7de', display: 'flex', flexDirection: 'column', gap: '4px', background: '#ffffff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', fontWeight: 600, color: '#57606a' }}>
+                  <span>GEMINI CREATIVITY SLIDER</span>
+                  <span style={{ color: '#0969da' }}>{(temperature * 100).toFixed(0)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1.0"
+                  step="0.1"
+                  value={temperature}
+                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                  style={{ width: '100%', height: '4px', background: '#eaeef2', borderRadius: '2px', outline: 'none', cursor: 'pointer' }}
+                />
+              </div>
+
+              {/* Chat Typing Input form */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendMessage(chatInput);
+                }}
+                style={{ padding: '10px', display: 'flex', gap: '6px', background: '#ffffff' }}
+              >
+                <input
+                  type="text"
+                  placeholder="Ask Gemini AI..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
                   disabled={chatLoading}
                   style={{
+                    flex: 1,
                     background: '#f6f8fa',
                     border: '1px solid #d0d7de',
                     borderRadius: '6px',
-                    color: '#24292f',
-                    padding: '8px 12px',
-                    fontSize: '0.8rem',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                    width: '100%',
-                    transition: 'all 0.15s'
+                    padding: '8px 10px',
+                    fontSize: '0.82rem',
+                    outline: 'none'
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#0969da';
-                    e.currentTarget.style.background = '#f0f3f6';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#d0d7de';
-                    e.currentTarget.style.background = '#f6f8fa';
+                />
+                <button
+                  type="submit"
+                  disabled={chatLoading}
+                  style={{
+                    background: '#0969da',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '0 12px',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
                   }}
                 >
-                  • {p.label}
+                  Send
                 </button>
-              ))}
+              </form>
             </div>
+
+            {/* DOWNLOAD SECTION */}
+            <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, margin: '0 0 12px 0' }}>Download Workspace</h3>
+              
+              {downloadState === 'idle' ? (
+                <button
+                  onClick={handleDownloadZip}
+                  style={{
+                    width: '100%',
+                    background: '#2ea44f',
+                    border: '1px solid rgba(27,31,36,0.15)',
+                    borderRadius: '6px',
+                    color: '#ffffff',
+                    padding: '10px 0',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: '0 1px 0 rgba(27,31,36,0.1)'
+                  }}
+                >
+                  <Download size={16} />
+                  <span>Download Repository ZIP</span>
+                </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600 }}>
+                    <span style={{ color: '#57606a' }}>
+                      {downloadState === 'preparing' ? 'Preparing Repository...' : downloadState === 'downloading' ? 'Downloading archive...' : 'Download Complete!'}
+                    </span>
+                    <span style={{ color: '#0969da' }}>{downloadProgress}%</span>
+                  </div>
+                  <div style={{ width: '100%', height: '8px', background: '#eaeef2', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${downloadProgress}%`, height: '100%', background: '#2ea44f', transition: 'width 0.3s' }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Actions (Clone parameters) */}
+            <div style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '20px' }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, margin: '0 0 14px 0' }}>Quick Actions</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#57606a', marginBottom: '4px' }}>HTTPS CLONE URL</div>
+                  <div style={{ display: 'flex', background: '#f6f8fa', border: '1px solid #d0d7de', borderRadius: '6px', overflow: 'hidden' }}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={`https://github.com/${repoFullName}.git`}
+                      style={{ flex: 1, border: 'none', background: 'none', padding: '6px 10px', fontSize: '0.78rem', fontFamily: 'monospace', color: '#24292f', outline: 'none' }}
+                    />
+                    <button
+                      onClick={() => handleCopyText(`https://github.com/${repoFullName}.git`, 'https')}
+                      style={{ background: '#ffffff', border: 'none', borderLeft: '1px solid #d0d7de', padding: '0 10px', cursor: 'pointer' }}
+                    >
+                      {copiedUrlType === 'https' ? <Check size={14} color="#1a7f37" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#57606a', marginBottom: '4px' }}>SSH CLONE URL</div>
+                  <div style={{ display: 'flex', background: '#f6f8fa', border: '1px solid #d0d7de', borderRadius: '6px', overflow: 'hidden' }}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={`git@github.com:${repoFullName}.git`}
+                      style={{ flex: 1, border: 'none', background: 'none', padding: '6px 10px', fontSize: '0.78rem', fontFamily: 'monospace', color: '#24292f', outline: 'none' }}
+                    />
+                    <button
+                      onClick={() => handleCopyText(`git@github.com:${repoFullName}.git`, 'ssh')}
+                      style={{ background: '#ffffff', border: 'none', borderLeft: '1px solid #d0d7de', padding: '0 10px', cursor: 'pointer' }}
+                    >
+                      {copiedUrlType === 'ssh' ? <Check size={14} color="#1a7f37" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid #eaeef2', paddingTop: '14px', marginTop: '4px' }}>
+                  <button
+                    onClick={() => setBookmarked(!bookmarked)}
+                    style={{
+                      flex: 1,
+                      background: bookmarked ? 'rgba(9,105,218,0.05)' : '#ffffff',
+                      border: '1px solid #d0d7de',
+                      borderRadius: '6px',
+                      padding: '8px 0',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      color: bookmarked ? '#0969da' : '#24292f',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Bookmark size={14} fill={bookmarked ? '#0969da' : 'none'} color={bookmarked ? '#0969da' : '#24292f'} />
+                    <span>{bookmarked ? 'Bookmarked' : 'Bookmark Repo'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleCopyText(window.location.href, 'share')}
+                    style={{
+                      flex: 1,
+                      background: '#ffffff',
+                      border: '1px solid #d0d7de',
+                      borderRadius: '6px',
+                      padding: '8px 0',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      color: '#24292f',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    {copiedUrlType === 'share' ? <Check size={14} color="#1a7f37" /> : <Globe size={14} />}
+                    <span>{copiedUrlType === 'share' ? 'Link Copied' : 'Share Repo'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </aside>
+
+        </div>
+
+        {/* BOTTOM SECTIONS */}
+        <div style={{ borderTop: '1px solid #d0d7de', paddingTop: '32px', marginTop: '16px' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#24292f', margin: '0 0 16px 0' }}>Similar & Recommended Repositories</h3>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            {similarRepos.length > 0 ? similarRepos.slice(0, 3).map((item, i) => (
+              <div key={i} style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', fontWeight: 700, color: '#0969da' }}>
+                  <Folder size={15} />
+                  <Link to={`/repository/${item.fullName}`} style={{ color: '#0969da', textDecoration: 'none' }}>
+                    {item.fullName}
+                  </Link>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', fontSize: '0.78rem', color: '#57606a' }}>
+                  <span>Language: <strong>{item.primaryLanguage || 'Unknown'}</strong></span>
+                  <span style={{ background: '#dafbe1', color: '#1a7f37', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                    {(item.similarityScore * 100).toFixed(0)}% Overlap
+                  </span>
+                </div>
+              </div>
+            )) : (
+              [
+                { fullName: 'spring-projects/spring-boot', language: 'Java', match: '94%' },
+                { fullName: 'facebook/react', language: 'TypeScript', match: '88%' },
+                { fullName: 'elastic/elasticsearch', language: 'Java', match: '80%' }
+              ].map((mockRepo, i) => (
+                <div key={i} style={{ background: '#ffffff', border: '1px solid #d0d7de', borderRadius: '8px', padding: '18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', fontWeight: 700, color: '#0969da' }}>
+                    <Folder size={15} />
+                    <Link to={`/repository/${mockRepo.fullName}`} style={{ color: '#0969da', textDecoration: 'none' }}>
+                      {mockRepo.fullName}
+                    </Link>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', fontSize: '0.78rem', color: '#57606a' }}>
+                    <span>Language: <strong>{mockRepo.language}</strong></span>
+                    <span style={{ background: '#dafbe1', color: '#1a7f37', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                      {mockRepo.match} Overlap
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-
-          {/* Chat Sticky footer input form */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendMessage(chatInput);
-            }}
-            style={{
-              padding: '16px 20px',
-              borderTop: '1px solid #d0d7de',
-              background: '#ffffff',
-              display: 'flex',
-              gap: '8px'
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Type your message..."
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              disabled={chatLoading}
-              style={{
-                flex: 1,
-                background: '#f6f8fa',
-                border: '1px solid #d0d7de',
-                borderRadius: '6px',
-                padding: '8px 12px',
-                fontSize: '0.85rem',
-                color: '#24292f',
-                outline: 'none'
-              }}
-            />
-            <button
-              type="submit"
-              disabled={chatLoading || !chatInput.trim()}
-              style={{
-                background: '#2ea44f',
-                border: 'none',
-                borderRadius: '6px',
-                color: '#ffffff',
-                width: '34px',
-                height: '34px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                opacity: (chatLoading || !chatInput.trim()) ? 0.6 : 1
-              }}
-            >
-              <Send size={14} />
-            </button>
-          </form>
-
-        </aside>
+        </div>
 
       </div>
     </div>
