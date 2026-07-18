@@ -7,7 +7,7 @@ import {
 import FileExplorer from '../components/FileExplorer';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '' : 'http://localhost:8080');
 
 interface RepoDetail {
   id: number;

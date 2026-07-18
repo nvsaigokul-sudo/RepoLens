@@ -1,9 +1,8 @@
 services:
   - type: web
-    name: repolens-backend
+    name: repolens
     env: docker
     dockerfilePath: Dockerfile
-    rootDir: titansearch-backend
     plan: free
     envVars:
       - key: SPRING_PROFILES_ACTIVE
@@ -12,13 +11,3 @@ services:
         sync: true
       - key: GEMINI_API_KEY
         sync: true
-
-  - type: static
-    name: repolens-frontend
-    env: static
-    buildCommand: npm install && npm run build
-    publishDir: dist
-    rootDir: titansearch-frontend
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://repolens-backend.onrender.com
