@@ -3,6 +3,9 @@ spring:
     name: titansearch-backend
   profiles:
     active: dev
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
 
 server:
   port: 8080
