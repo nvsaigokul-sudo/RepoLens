@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.time.Instant;
@@ -107,14 +109,22 @@ public class GitHubClient {
         }
     }
 
-    public byte[] downloadArchive(String owner, String repo) {
+    public void downloadArchive(String owner, String repo, HttpServletResponse response) {
         try {
-            return gitHubRestClient.get()
+            gitHubRestClient.get()
                     .uri("/repos/{owner}/{repo}/zipball", owner, repo)
                     .header("Accept", "*/*")
-                    .retrieve()
-                    .body(byte[].class);
-        } catch (RestClientException e) {
+                    .exchange((req, res) -> {
+                        response.setStatus(res.getStatusCode().value());
+                        response.setContentType("application/zip");
+                        response.setHeader("Content-Disposition", "attachment; filename=\"" + owner + "-" + repo + ".zip\"");
+                        
+                        try (InputStream is = res.getBody()) {
+                            is.transferTo(response.getOutputStream());
+                        }
+                        return null;
+                    });
+        } catch (Exception e) {
             log.error("GitHub download zip failed for {}/{}: {}", owner, repo, e.getMessage());
             throw new GitHubApiException("Failed to download ZIP from GitHub", e);
         }

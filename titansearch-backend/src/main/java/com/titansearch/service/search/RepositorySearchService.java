@@ -10,6 +10,7 @@ import com.titansearch.service.github.GitHubSearchResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -95,7 +96,7 @@ public class RepositorySearchService {
         );
     }
 
-    public byte[] downloadZip(String owner, String repoName) {
-        return gitHubClient.downloadArchive(owner, repoName);
+    public void downloadZip(String owner, String repoName, HttpServletResponse response) {
+        gitHubClient.downloadArchive(owner, repoName, response);
     }
 }

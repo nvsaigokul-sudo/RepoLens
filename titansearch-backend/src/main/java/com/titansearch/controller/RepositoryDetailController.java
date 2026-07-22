@@ -1,10 +1,12 @@
 package com.titansearch.controller;
 
+import com.titansearch.config.SecurityContext;
 import com.titansearch.dto.response.ApiEnvelope;
 import com.titansearch.dto.response.RepositoryDetailResponse;
 import com.titansearch.service.search.RepositorySearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,12 +35,18 @@ public class RepositoryDetailController {
 
     @GetMapping("/{owner}/{repo}/zip")
     @Operation(summary = "Download repository ZIP archive")
-    public ResponseEntity<byte[]> downloadZip(
-            @PathVariable String owner, @PathVariable String repo) {
-        byte[] zipBytes = repositorySearchService.downloadZip(owner, repo);
-        return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + owner + "-" + repo + ".zip\"")
-                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/zip")
-                .body(zipBytes);
+    public void downloadZip(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @RequestParam(required = false) String token,
+            HttpServletResponse response) {
+        if (token != null && !token.isBlank()) {
+            SecurityContext.setGitHubToken(token);
+        }
+        try {
+            repositorySearchService.downloadZip(owner, repo, response);
+        } finally {
+            SecurityContext.clear();
+        }
     }
 }

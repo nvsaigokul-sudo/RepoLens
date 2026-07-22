@@ -516,35 +516,21 @@ export default function RepositoryDetailPage() {
     setTimeout(() => setCopiedUrlType(null), 2000);
   };
 
-  const handleDownloadZip = async () => {
+  const handleDownloadZip = () => {
     setDownloadState('preparing');
-    setDownloadProgress(20);
+    setDownloadProgress(30);
     
     try {
-      await new Promise(r => setTimeout(r, 600));
-      setDownloadProgress(50);
-      setDownloadState('downloading');
+      const gitToken = localStorage.getItem('repolens-git-token') || '';
+      const zipUrl = `${API_BASE_URL}/api/v1/repositories/${repoFullName}/zip?token=${encodeURIComponent(gitToken)}`;
       
-      const zipUrl = `${API_BASE_URL}/api/v1/repositories/${repoFullName}/zip`;
-      const response = await fetch(zipUrl, {
-        headers: getAuthHeaders()
-      });
-      if (!response.ok) throw new Error("Failed to retrieve ZIP package");
+      setDownloadProgress(70);
       
-      setDownloadProgress(80);
-      await new Promise(r => setTimeout(r, 400));
+      // Navigate window directly to begin download stream from proxy
+      window.location.href = zipUrl;
       
-      const blob = await response.blob();
       setDownloadProgress(100);
       setDownloadState('complete');
-      
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = `${owner || ''}-${repo || ''}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
       
       setTimeout(() => {
         setDownloadState('idle');
@@ -553,6 +539,7 @@ export default function RepositoryDetailPage() {
     } catch (err: any) {
       console.error(err);
       setDownloadState('idle');
+      setDownloadProgress(0);
       alert("ZIP Download error: " + err.message);
     }
   };
