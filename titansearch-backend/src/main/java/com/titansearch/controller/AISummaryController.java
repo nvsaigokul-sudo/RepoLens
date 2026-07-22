@@ -34,6 +34,14 @@ public class AISummaryController {
             @RequestHeader(value = "X-Gemini-Key", required = false) String geminiKey) {
 
         RepositoryDetailResponse repository = repositorySearchService.getDetail(owner, repo);
+        
+        String jobError = aiSummaryService.getJobError(repository.fullName());
+        if (jobError != null) {
+            aiSummaryService.clearJobState(repository.fullName());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("ANALYSIS_FAILED", jobError)));
+        }
+
         Optional<AISummaryPojo> summaryOpt = aiSummaryService.getSummary(repository, gitToken, geminiKey);
 
         if (summaryOpt.isPresent()) {

@@ -33,6 +33,14 @@ public class ResumeValueController {
             @RequestHeader(value = "X-Gemini-Key", required = false) String geminiKey) {
 
         RepositoryDetailResponse repository = repositorySearchService.getDetail(owner, repo);
+        
+        String jobError = resumeValueService.getJobError(repository.fullName());
+        if (jobError != null) {
+            resumeValueService.clearJobState(repository.fullName());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("ANALYSIS_FAILED", jobError)));
+        }
+
         Optional<ResumeAnalysisPojo> analysisOpt = resumeValueService.getResumeAnalysis(repository, gitToken, geminiKey);
 
         if (analysisOpt.isPresent()) {

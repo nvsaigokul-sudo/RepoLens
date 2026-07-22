@@ -29,7 +29,8 @@ public class ResumeValueService {
     private final CacheService cacheService;
     private final GeminiClient geminiClient;
 
-    private final Set<String> activeResumeJobs = ConcurrentHashMap.newKeySet();
+    public enum JobState { PENDING, FAILED }
+    private final java.util.Map<String, JobState> jobStates = new ConcurrentHashMap<>();
     private static final long CACHE_TTL_SECONDS = 86400; // 24 hours
 
     public Optional<ResumeAnalysisPojo> getResumeAnalysis(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
@@ -45,17 +46,31 @@ public class ResumeValueService {
     }
 
     public boolean isGenerationPending(String fullName) {
-        return activeResumeJobs.contains(fullName.toLowerCase());
+        return jobStates.get(fullName.toLowerCase()) == JobState.PENDING;
+    }
+
+    public String getJobError(String fullName) {
+        String key = fullName.toLowerCase();
+        if (jobStates.get(key) == JobState.FAILED) {
+            return "Failed to evaluate repository portfolio value. Please check your configuration and API keys.";
+        }
+        return null;
+    }
+
+    public void clearJobState(String fullName) {
+        jobStates.remove(fullName.toLowerCase());
     }
 
     private void triggerAsyncGeneration(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
         String name = repository.fullName().toLowerCase();
-        if (activeResumeJobs.add(name)) {
-            log.info("Triggered async resume evaluation for repository: {}", repository.fullName());
-            generateResumeAnalysisAsync(repository, gitToken, geminiKey);
-        } else {
+        JobState state = jobStates.get(name);
+        if (state == JobState.PENDING) {
             log.info("Resume evaluation for repository {} is already in progress.", repository.fullName());
+            return;
         }
+        log.info("Triggered async resume evaluation for repository: {}", repository.fullName());
+        jobStates.put(name, JobState.PENDING);
+        generateResumeAnalysisAsync(repository, gitToken, geminiKey);
     }
 
     @Async
@@ -108,9 +123,12 @@ public class ResumeValueService {
             log.info("Successfully generated resume analysis for repository: {}", fullName);
         } catch (Exception e) {
             log.error("Failed to generate resume analysis for repository {}: {}", fullName, e.getMessage());
+            jobStates.put(nameKey, JobState.FAILED);
         } finally {
             com.titansearch.config.SecurityContext.clear();
-            activeResumeJobs.remove(nameKey);
+            if (jobStates.get(nameKey) == JobState.PENDING) {
+                jobStates.remove(nameKey);
+            }
         }
     }
 }

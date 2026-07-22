@@ -26,7 +26,8 @@ public class AISummaryService {
     private final CacheService cacheService;
     private final GeminiClient geminiClient;
 
-    private final Set<String> activeSummaryJobs = ConcurrentHashMap.newKeySet();
+    public enum JobState { PENDING, FAILED }
+    private final java.util.Map<String, JobState> jobStates = new ConcurrentHashMap<>();
     private static final long CACHE_TTL_SECONDS = 86400; // 24 hours
 
     public Optional<AISummaryPojo> getSummary(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
@@ -42,7 +43,19 @@ public class AISummaryService {
     }
 
     public boolean isGenerationPending(String fullName) {
-        return activeSummaryJobs.contains(fullName.toLowerCase());
+        return jobStates.get(fullName.toLowerCase()) == JobState.PENDING;
+    }
+
+    public String getJobError(String fullName) {
+        String key = fullName.toLowerCase();
+        if (jobStates.get(key) == JobState.FAILED) {
+            return "Failed to generate AI summary. Please check your Gemini API key in System Settings.";
+        }
+        return null;
+    }
+
+    public void clearJobState(String fullName) {
+        jobStates.remove(fullName.toLowerCase());
     }
 
     public void forceRegenerate(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
@@ -51,12 +64,14 @@ public class AISummaryService {
 
     private void triggerAsyncGeneration(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
         String name = repository.fullName().toLowerCase();
-        if (activeSummaryJobs.add(name)) {
-            log.info("Triggered async AI summary generation for repository: {}", repository.fullName());
-            generateSummaryAsync(repository, gitToken, geminiKey);
-        } else {
+        JobState state = jobStates.get(name);
+        if (state == JobState.PENDING) {
             log.info("AI summary generation for repository {} is already in progress.", repository.fullName());
+            return;
         }
+        log.info("Triggered async AI summary generation for repository: {}", repository.fullName());
+        jobStates.put(name, JobState.PENDING);
+        generateSummaryAsync(repository, gitToken, geminiKey);
     }
 
     @Async
@@ -97,9 +112,12 @@ public class AISummaryService {
             log.info("Successfully generated AI summary for repository: {}", fullName);
         } catch (Exception e) {
             log.error("Failed to generate AI summary for repository {}: {}", fullName, e.getMessage());
+            jobStates.put(nameKey, JobState.FAILED);
         } finally {
             com.titansearch.config.SecurityContext.clear();
-            activeSummaryJobs.remove(nameKey);
+            if (jobStates.get(nameKey) == JobState.PENDING) {
+                jobStates.remove(nameKey);
+            }
         }
     }
 }

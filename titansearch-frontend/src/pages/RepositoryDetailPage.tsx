@@ -200,6 +200,16 @@ export default function RepositoryDetailPage() {
   const [aiSummary, setAiSummary] = useState<AiSummaryData | null>(null);
   const [aiSummaryPending, setAiSummaryPending] = useState(false);
   const [resumeAnalysisPending, setResumeAnalysisPending] = useState(false);
+  const [aiSummaryError, setAiSummaryError] = useState<string | null>(null);
+  const [resumeAnalysisError, setResumeAnalysisError] = useState<string | null>(null);
+
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Search input in header
   const [headerSearch, setHeaderSearch] = useState('');
@@ -519,8 +529,14 @@ export default function RepositoryDetailPage() {
     }
   };
 
-  const fetchAiSummary = async (signal: AbortSignal) => {
+  const fetchAiSummary = async (signal: AbortSignal, pollCount = 0) => {
+    if (pollCount > 15) {
+      setAiSummaryPending(false);
+      setAiSummaryError("AI summary request timed out. Please retry.");
+      return;
+    }
     try {
+      setAiSummaryError(null);
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/ai-summary`, {
         signal,
         headers: getAuthHeaders()
@@ -530,7 +546,7 @@ export default function RepositoryDetailPage() {
         setAiSummaryPending(true);
         if (!signal.aborted) {
           setTimeout(() => {
-            if (!signal.aborted) fetchAiSummary(signal);
+            if (!signal.aborted) fetchAiSummary(signal, pollCount + 1);
           }, 3000);
         }
       } else if (res.ok && json.data) {
@@ -540,16 +556,24 @@ export default function RepositoryDetailPage() {
         detailsCache[repoFullName].aiSummary = json.data;
       } else {
         setAiSummaryPending(false);
+        setAiSummaryError(json.error?.message || "Failed to generate AI summary.");
       }
     } catch (e: any) {
       if (e.name === 'AbortError') return;
       console.error(e);
       setAiSummaryPending(false);
+      setAiSummaryError("Unable to contact the AI service. Please check your internet connection.");
     }
   };
 
-  const triggerResumeAnalysis = async (signal: AbortSignal) => {
+  const triggerResumeAnalysis = async (signal: AbortSignal, pollCount = 0) => {
+    if (pollCount > 15) {
+      setResumeAnalysisPending(false);
+      setResumeAnalysisError("AI portfolio evaluation timed out. Please retry.");
+      return;
+    }
     try {
+      setResumeAnalysisError(null);
       const res = await fetch(`${API_BASE_URL}/api/v1/repositories/${repoFullName}/resume-analysis`, {
         method: 'POST',
         signal,
@@ -560,7 +584,7 @@ export default function RepositoryDetailPage() {
         setResumeAnalysisPending(true);
         if (!signal.aborted) {
           setTimeout(() => {
-            if (!signal.aborted) triggerResumeAnalysis(signal);
+            if (!signal.aborted) triggerResumeAnalysis(signal, pollCount + 1);
           }, 3000);
         }
       } else if (res.ok && json.data) {
@@ -575,11 +599,13 @@ export default function RepositoryDetailPage() {
         detailsCache[repoFullName].resumeAnalysis = mappedData;
       } else {
         setResumeAnalysisPending(false);
+        setResumeAnalysisError(json.error?.message || "Failed to evaluate repository portfolio value.");
       }
     } catch (e: any) {
       if (e.name === 'AbortError') return;
       console.error(e);
       setResumeAnalysisPending(false);
+      setResumeAnalysisError("Unable to contact the AI service. Please check your internet connection.");
     }
   };
 
@@ -775,17 +801,7 @@ export default function RepositoryDetailPage() {
 
   const renderSimpleMarkdown = (text: string) => {
     if (!text) return 'No README content found.';
-    const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return escaped
-      .replace(/^# (.*$)/gim, `<h1 style="font-size:1.6rem; border-bottom:1px solid ${theme.border}; padding-bottom:8px; margin:24px 0 12px 0; font-weight:700; color:${theme.text};">$1</h1>`)
-      .replace(/^## (.*$)/gim, `<h2 style="font-size:1.3rem; border-bottom:1px solid ${theme.border}; padding-bottom:6px; margin:20px 0 10px 0; font-weight:600; color:${theme.text};">$2</h2>`)
-      .replace(/^### (.*$)/gim, `<h3 style="font-size:1.1rem; margin:16px 0 8px 0; font-weight:600; color:${theme.text};">$1</h3>`)
-      .replace(/^\* (.*$)/gim, `<li style="margin-left:20px; list-style-type:disc; margin-bottom:4px; color:${theme.text};">$1</li>`)
-      .replace(/^- (.*$)/gim, `<li style="margin-left:20px; list-style-type:circle; margin-bottom:4px; color:${theme.text};">$1</li>`)
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`(.*?)`/g, `<code style="background:${theme.sidebarBg}; padding:2px 6px; border-radius:4px; font-family:monospace; font-size:0.85em; color:#e06c75;">$1</code>`)
-      .replace(/\n\n/g, `<p style="margin:12px 0; line-height:1.5; color:${theme.text};"></p>`)
-      .replace(/\n/g, '<br />');
+    return renderChatMarkdown(text, theme, darkMode);
   };
 
   return (
@@ -919,7 +935,7 @@ export default function RepositoryDetailPage() {
 
       {/* Detail Layout Container */}
       <div style={{
-        maxWidth: '1280px',
+        maxWidth: '1440px',
         width: '100%',
         margin: '24px auto',
         padding: '0 24px',
@@ -959,8 +975,8 @@ export default function RepositoryDetailPage() {
         {/* 2-Column Split view */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '60% 40%',
-          gap: '28px',
+          gridTemplateColumns: windowWidth >= 1024 ? '62% 38%' : '1fr',
+          gap: '24px',
           alignItems: 'start'
         }}>
           
@@ -1103,7 +1119,14 @@ export default function RepositoryDetailPage() {
                       <span>README.md</span>
                     </div>
                     <div
-                      style={{ padding: '24px 32px' }}
+                      style={{
+                        padding: '24px 32px',
+                        lineHeight: 1.6,
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+                        color: theme.text,
+                        fontSize: '0.92rem',
+                        overflowX: 'auto'
+                      }}
                       dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(detail.readmePreview) }}
                     />
                   </div>
@@ -1161,6 +1184,31 @@ export default function RepositoryDetailPage() {
                         <div className="spin-icon" style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #eaeef2', borderTopColor: '#0969da' }} />
                         <span style={{ fontSize: '0.88rem', color: theme.textMuted }}>Generating AI Summary with Gemini...</span>
                       </div>
+                    ) : aiSummaryError ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ fontSize: '0.88rem', color: darkMode ? '#ff7b72' : '#cf222e' }}>{aiSummaryError}</div>
+                        <button
+                          onClick={() => {
+                            const controller = new AbortController();
+                            setAiSummaryPending(true);
+                            setAiSummaryError(null);
+                            fetchAiSummary(controller.signal);
+                          }}
+                          style={{
+                            alignSelf: 'flex-start',
+                            background: '#0969da',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Retry Summary
+                        </button>
+                      </div>
                     ) : (
                       <>
                         <p style={{ fontSize: '0.9rem', color: theme.text, lineHeight: 1.5, margin: 0 }}>
@@ -1182,6 +1230,31 @@ export default function RepositoryDetailPage() {
                     <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <div className="spin-icon" style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #eaeef2', borderTopColor: '#0969da' }} />
                       <span style={{ fontSize: '0.88rem', color: theme.textMuted }}>Analyzing repository strengths and areas for improvement...</span>
+                    </div>
+                  ) : resumeAnalysisError ? (
+                    <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ fontSize: '0.88rem', color: darkMode ? '#ff7b72' : '#cf222e' }}>{resumeAnalysisError}</div>
+                      <button
+                        onClick={() => {
+                          const controller = new AbortController();
+                          setResumeAnalysisPending(true);
+                          setResumeAnalysisError(null);
+                          triggerResumeAnalysis(controller.signal);
+                        }}
+                        style={{
+                          alignSelf: 'flex-start',
+                          background: '#0969da',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Retry Evaluation
+                      </button>
                     </div>
                   ) : (
                     resumeAnalysis && (
@@ -1254,7 +1327,7 @@ export default function RepositoryDetailPage() {
           </div>
 
           {/* RIGHT SIDEBAR (30%) - Sticky Owner & Action widgets */}
-          <aside style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: 'sticky', top: '86px' }}>
+          <aside style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: windowWidth >= 1024 ? 'sticky' : 'static', top: '86px', width: '100%' }}>
             
             {/* Owner detailed card */}
             {ownerData && (
@@ -1330,7 +1403,7 @@ export default function RepositoryDetailPage() {
               </div>
               
               {/* Message Log */}
-              <div style={{ height: '380px', padding: '14px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', background: darkMode ? '#0d1117' : '#fafafa', borderBottom: `1px solid ${theme.border}` }}>
+              <div style={{ height: 'min(500px, 55vh)', padding: '14px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', background: darkMode ? '#0d1117' : '#fafafa', borderBottom: `1px solid ${theme.border}` }}>
                 {messages.map((msg, i) => (
                   <div
                     key={i}

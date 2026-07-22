@@ -30,6 +30,16 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Responsiveness & Interaction states
+  const [width, setWidth] = useState(window.innerWidth);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    const handleResize = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const pathString = currentPath.join('/');
 
   // Dark theme detection
@@ -211,7 +221,7 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
       <div style={{ border: `1px solid ${theme.border}`, borderRadius: '6px', overflow: 'hidden', background: theme.cardBg }}>
         
         {/* Directories and File Counts Header */}
-        <div style={{ background: theme.sidebarBg, padding: '10px 16px', borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: theme.textMuted, fontWeight: 600 }}>
+        <div style={{ position: 'sticky', top: 0, zIndex: 5, background: theme.sidebarBg, padding: '10px 16px', borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: theme.textMuted, fontWeight: 600 }}>
           <span>CURRENT PATH: /{pathString}</span>
           <span>{folderCount} Folders • {fileCount} Files</span>
         </div>
@@ -233,17 +243,23 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
               .sort((a, b) => (a.type === 'dir' ? -1 : 1) - (b.type === 'dir' ? -1 : 1))
               .map((item, idx) => {
                 const commit = getMockCommit(item.name);
+                const isMobile = width < 768;
+                const isHovered = hoveredIdx === idx;
                 return (
                   <div
                     key={idx}
+                    onMouseEnter={() => setHoveredIdx(idx)}
+                    onMouseLeave={() => setHoveredIdx(null)}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '220px 1fr 100px 110px',
+                      gridTemplateColumns: isMobile ? '1fr 80px' : '240px 1fr 80px 110px',
                       alignItems: 'center',
                       padding: '10px 16px',
                       borderBottom: idx < filteredItems.length - 1 ? `1px solid ${theme.border}` : 'none',
                       fontSize: '0.85rem',
-                      background: theme.cardBg
+                      background: isHovered ? (darkMode ? '#21262d' : '#f6f8fa') : theme.cardBg,
+                      gap: '8px',
+                      transition: 'background-color 0.15s ease'
                     }}
                   >
                     {/* Item Name & Icon */}
@@ -261,11 +277,14 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
                           cursor: 'pointer',
                           fontFamily: 'monospace',
                           padding: 0,
-                          textAlign: 'left'
+                          textAlign: 'left',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
                         }}
                       >
-                        <Folder size={15} color="#54aeff" fill="#b4dbff" />
-                        <span>{item.name}/</span>
+                        <Folder size={15} color="#54aeff" fill="#b4dbff" style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}/</span>
                       </button>
                     ) : (
                       <button
@@ -281,28 +300,35 @@ export default function FileExplorer({ owner, repo }: FileExplorerProps) {
                           cursor: 'pointer',
                           fontFamily: 'monospace',
                           padding: 0,
-                          textAlign: 'left'
+                          textAlign: 'left',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
                         }}
                       >
-                        <FileCode size={15} color={theme.textMuted} />
-                        <span>{item.name}</span>
+                        <FileCode size={15} color={theme.textMuted} style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                       </button>
                     )}
 
                     {/* Commit Message */}
-                    <span style={{ color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '12px' }}>
-                      {commit.message}
-                    </span>
+                    {!isMobile && (
+                      <span style={{ color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '12px' }}>
+                        {commit.message}
+                      </span>
+                    )}
 
                     {/* File Size */}
-                    <span style={{ fontSize: '0.78rem', color: theme.textMuted, fontFamily: 'monospace' }}>
+                    <span style={{ fontSize: '0.78rem', color: theme.textMuted, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                       {item.type === 'file' ? (item.size / 1024).toFixed(1) + ' KB' : '—'}
                     </span>
 
                     {/* Last Modified */}
-                    <span style={{ fontSize: '0.78rem', color: theme.textMuted, textAlign: 'right' }}>
-                      {commit.time}
-                    </span>
+                    {!isMobile && (
+                      <span style={{ fontSize: '0.78rem', color: theme.textMuted, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {commit.time}
+                      </span>
+                    )}
                   </div>
                 );
               })}
