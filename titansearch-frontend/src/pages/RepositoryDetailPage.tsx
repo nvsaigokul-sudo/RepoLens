@@ -114,7 +114,7 @@ const renderChatMarkdown = (text: string, theme: any, darkMode: boolean) => {
     } else {
       codeBlocks.push(`<pre style="background: ${darkMode ? '#161b22' : '#f6f8fa'}; border: 1px solid ${theme.border}; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: monospace; font-size: 0.82rem; margin: 12px 0; color: ${theme.text};"><code class="language-${lang}">${code}</code></pre>`);
     }
-    return `__CODE_BLOCK_PLACEHOLDER_${index}__`;
+    return `:::CODE_BLOCK_PLACEHOLDER_${index}:::`;
   });
 
   // 2. Block level: Tables
@@ -169,7 +169,7 @@ const renderChatMarkdown = (text: string, theme: any, darkMode: boolean) => {
   
   // Restore code block placeholders
   codeBlocks.forEach((htmlBlock, index) => {
-    escaped = escaped.replace(`__CODE_BLOCK_PLACEHOLDER_${index}__`, htmlBlock);
+    escaped = escaped.replace(`:::CODE_BLOCK_PLACEHOLDER_${index}:::`, htmlBlock);
   });
 
   return escaped;
@@ -249,11 +249,12 @@ export default function RepositoryDetailPage() {
             theme: darkMode ? 'dark' : 'default',
             securityLevel: 'loose'
           });
-          const containers = document.querySelectorAll('.mermaid');
-          containers.forEach(el => {
-            el.removeAttribute('data-processed');
-          });
-          mermaidObj.run();
+          const newNodes = document.querySelectorAll('.mermaid:not([data-processed="true"])');
+          if (newNodes.length > 0) {
+            mermaidObj.run({
+              nodes: Array.from(newNodes)
+            });
+          }
         } catch (e) {
           console.error("Mermaid run failed:", e);
         }
