@@ -104,7 +104,15 @@ const renderChatMarkdown = (text: string, theme: any, darkMode: boolean) => {
   const codeBlocks: string[] = [];
   escaped = escaped.replace(/```(\w*)\n([\s\S]*?)\n```/g, (_, lang, code) => {
     const index = codeBlocks.length;
-    codeBlocks.push(`<pre style="background: ${darkMode ? '#161b22' : '#f6f8fa'}; border: 1px solid ${theme.border}; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: monospace; font-size: 0.82rem; margin: 12px 0; color: ${theme.text};"><code class="language-${lang}">${code}</code></pre>`);
+    if (lang === 'mermaid') {
+      const rawCode = code
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&');
+      codeBlocks.push(`<div class="mermaid" style="background: ${darkMode ? '#161b22' : '#f6f8fa'}; border: 1px solid ${theme.border}; padding: 16px; border-radius: 8px; margin: 12px 0; overflow-x: auto; display: block; text-align: center; color: ${theme.text};">${rawCode}</div>`);
+    } else {
+      codeBlocks.push(`<pre style="background: ${darkMode ? '#161b22' : '#f6f8fa'}; border: 1px solid ${theme.border}; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: monospace; font-size: 0.82rem; margin: 12px 0; color: ${theme.text};"><code class="language-${lang}">${code}</code></pre>`);
+    }
     return `__CODE_BLOCK_PLACEHOLDER_${index}__`;
   });
 
@@ -228,6 +236,41 @@ export default function RepositoryDetailPage() {
   useEffect(() => {
     localStorage.setItem('repolens-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
+
+  // Load and run mermaid library
+  useEffect(() => {
+    const runMermaid = () => {
+      const mermaidObj = (window as any).mermaid;
+      if (mermaidObj) {
+        try {
+          mermaidObj.initialize({
+            startOnLoad: false,
+            theme: darkMode ? 'dark' : 'default',
+            securityLevel: 'loose'
+          });
+          const containers = document.querySelectorAll('.mermaid');
+          containers.forEach(el => {
+            el.removeAttribute('data-processed');
+          });
+          mermaidObj.run();
+        } catch (e) {
+          console.error("Mermaid run failed:", e);
+        }
+      }
+    };
+
+    if (!(window as any).mermaid) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js';
+      script.async = true;
+      script.onload = () => {
+        runMermaid();
+      };
+      document.body.appendChild(script);
+    } else {
+      setTimeout(runMermaid, 150);
+    }
+  }, [darkMode, messages]);
 
   // Load notifications from local storage on mount
   useEffect(() => {
@@ -1316,16 +1359,23 @@ export default function RepositoryDetailPage() {
               </div>
 
               {/* Slider for Gemini Creativity / Temperature */}
-              <div style={{ padding: '10px 14px', borderBottom: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '4px', background: theme.cardBg }}>
+              <div style={{ padding: '10px 14px', borderBottom: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '6px', background: theme.cardBg }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', fontWeight: 600, color: theme.textMuted }}>
-                  <span>GEMINI CREATIVITY SLIDER</span>
-                  <span style={{ color: '#0969da' }}>{(temperature * 100).toFixed(0)}%</span>
+                  <span>EXPLANATION DEPTH & CREATIVITY</span>
+                  <span style={{ color: '#0969da', fontWeight: 700 }}>
+                    {(temperature * 100).toFixed(0)}% (
+                    {temperature <= 0.25 ? 'L1: Non-Technical' :
+                     temperature <= 0.50 ? 'L2: Student/Beginner' :
+                     temperature <= 0.75 ? 'L3: Developer' :
+                     'L4: Senior Architect'}
+                    )
+                  </span>
                 </div>
                 <input
                   type="range"
-                  min="0.1"
+                  min="0.0"
                   max="1.0"
-                  step="0.1"
+                  step="0.05"
                   value={temperature}
                   onChange={(e) => setTemperature(parseFloat(e.target.value))}
                   style={{ width: '100%', height: '4px', background: darkMode ? '#30363d' : '#eaeef2', borderRadius: '2px', outline: 'none', cursor: 'pointer' }}

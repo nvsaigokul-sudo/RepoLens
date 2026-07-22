@@ -132,25 +132,70 @@ public class GeminiClient {
     }
 
     public String generateChatResponse(String repoName, String description, String summaryOverview, String userQuery) {
+        return generateChatResponse(repoName, description, summaryOverview, userQuery, 0.7);
+    }
+
+    public String generateChatResponse(String repoName, String description, String summaryOverview, String userQuery, double temperature) {
         String effectiveKey = getEffectiveApiKey();
         if (effectiveKey == null || effectiveKey.isBlank()) {
             return "This is a local mock response. I'm ready to answer any questions about " + repoName + " once the Gemini API key is configured!";
         }
 
+        String depthGuideline = "";
+        if (temperature <= 0.25) {
+            depthGuideline = """
+                [EXPLANATION LEVEL: Level 1 (0-25%) - Non-technical Audience]
+                - Use very simple, plain language. Explain concepts as if to a complete beginner or a non-programmer.
+                - Absolutely avoid technical jargon, framework details, or programming specifics.
+                - Use analogies and real-world examples to describe what the code/repository achieves.
+                - Focus on explaining: What the repository does, Why someone created it, Who would use it, and What problem it solves.
+                - Include a very simple, high-level Mermaid flowchart using non-technical terms.
+                """;
+        } else if (temperature <= 0.50) {
+            depthGuideline = """
+                [EXPLANATION LEVEL: Level 2 (25-50%) - Students and Beginners]
+                - Focus on the main programming language, frameworks, directory structure, high-level workflow, APIs used, dependencies, and basic architecture.
+                - Avoid deep code implementation details or complex software patterns.
+                - Keep explanations intermediate and clear.
+                - Include a basic Mermaid flowchart or sequence diagram visualizing the high-level system components.
+                """;
+        } else if (temperature <= 0.75) {
+            depthGuideline = """
+                [EXPLANATION LEVEL: Level 3 (50-75%) - Software Developers]
+                - Provide a deep technical overview suitable for a professional software engineer.
+                - Include details about internal architecture, design patterns, request lifecycle, package responsibilities, build configurations, controllers/services, database schemas/interactions, API/module interactions, and class roles.
+                - Use technical terminology naturally.
+                - Include detailed technical Mermaid flowcharts, sequence flows, class relationships, or package dependency graphs.
+                """;
+        } else {
+            depthGuideline = """
+                [EXPLANATION LEVEL: Level 4 (75-100%) - Senior Developers, Architects, and Open Source Contributors]
+                - Provide the deepest possible repository analysis. Assume the user is looking to understand the codebase deeply to write and contribute code.
+                - Discuss: internal execution flow, call graphs, complex component coordination, sequence flow details, concurrency, threading models, data flows, scalability trade-offs, performance bottlenecks, memory management, design rationale, CI/CD pipelines, security, and potential system refactors.
+                - Include extensive, advanced Mermaid diagrams (such as detailed UML class structures, complex sequence interactions, data flow maps, or architectural layers).
+                """;
+        }
+
         String prompt = """
             You are RepoLens AI, an expert software developer and repository auditor.
-            You are assisting a developer in understanding the repository: %s.
+            You are assisting a user in understanding the repository: %s.
             Here is the repository description: %s
             Here is the repository overview summary: %s
             
-            Answer the following user question/request in a helpful, technical, yet easy-to-understand manner:
+            Current Target Audience and Depth Guidelines:
+            %s
+            
+            Answer the following user question/request:
             "%s"
             
-            Respond directly using markdown formatting.
-            """.formatted(repoName, description, summaryOverview, userQuery);
+            IMPORTANT RULES:
+            - Respond directly using markdown formatting.
+            - Adapt your vocabulary, tone, explanation depth, and technical terminology strictly to match the target audience level guidelines.
+            - Automatically generate and embed appropriate Mermaid diagrams (using ```mermaid code fences) to visually map out workflows, APIs, components, or call hierarchies described in your response.
+            """.formatted(repoName, description, summaryOverview, depthGuideline, userQuery);
 
         try {
-            String responseBody = callGeminiApi(prompt, effectiveKey, null);
+            String responseBody = callGeminiApi(prompt, effectiveKey, null, temperature);
             return cleanJsonResponse(responseBody);
         } catch (Exception e) {
             log.error("Failed to generate chat response: {}", e.getMessage());
@@ -159,9 +204,17 @@ public class GeminiClient {
     }
 
     private String callGeminiApi(String prompt, String effectiveKey, String responseMimeType) {
-        Map<String, Object> generationConfig = responseMimeType != null
-                ? Map.of("responseMimeType", responseMimeType)
-                : Map.of();
+        return callGeminiApi(prompt, effectiveKey, responseMimeType, null);
+    }
+
+    private String callGeminiApi(String prompt, String effectiveKey, String responseMimeType, Double temperature) {
+        java.util.Map<String, Object> generationConfig = new java.util.HashMap<>();
+        if (responseMimeType != null) {
+            generationConfig.put("responseMimeType", responseMimeType);
+        }
+        if (temperature != null) {
+            generationConfig.put("temperature", temperature);
+        }
 
         Map<String, Object> requestBody = Map.of(
             "contents", List.of(

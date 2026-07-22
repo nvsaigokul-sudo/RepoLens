@@ -83,13 +83,27 @@ public class AISummaryController {
     public ResponseEntity<ApiEnvelope<?>> chatWithRepo(
             @PathVariable String owner,
             @PathVariable String repo,
-            @RequestBody Map<String, String> body,
+            @RequestBody Map<String, Object> body,
             @RequestHeader(value = "X-GitHub-Token", required = false) String gitToken,
             @RequestHeader(value = "X-Gemini-Key", required = false) String geminiKey) {
 
-        String userMessage = body.get("message");
+        String userMessage = (String) body.get("message");
         if (userMessage == null || userMessage.isBlank()) {
             return ResponseEntity.badRequest().body(ApiEnvelope.failed(new ApiEnvelope.ApiError("INVALID_INPUT", "Message is required")));
+        }
+
+        double temperature = 0.7;
+        if (body.containsKey("temperature")) {
+            Object tempObj = body.get("temperature");
+            if (tempObj instanceof Number) {
+                temperature = ((Number) tempObj).doubleValue();
+            } else if (tempObj instanceof String) {
+                try {
+                    temperature = Double.parseDouble((String) tempObj);
+                } catch (NumberFormatException e) {
+                    // Ignore
+                }
+            }
         }
 
         RepositoryDetailResponse repository = repositorySearchService.getDetail(owner, repo);
@@ -100,7 +114,8 @@ public class AISummaryController {
                 repository.fullName(),
                 repository.description() != null ? repository.description() : "",
                 overview,
-                userMessage
+                userMessage,
+                temperature
         );
 
         return ResponseEntity.ok(ApiEnvelope.ok(Map.of("response", aiResponse)));
