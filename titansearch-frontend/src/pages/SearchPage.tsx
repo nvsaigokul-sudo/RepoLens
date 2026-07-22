@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Star, GitFork, ChevronLeft, ChevronRight, Bell, Folder,
-  Settings, ArrowRight, Shield, Calendar, Sparkles, Moon, Sun, Key, Sliders, Check, Download
+  Settings, ArrowRight, Shield, Calendar, Sparkles, Moon, Sun, Key, Sliders, Check, Download,
+  History
 } from 'lucide-react';
 import SkeletonCard from '../components/SkeletonCard';
 
@@ -60,8 +61,11 @@ export default function SearchPage() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Left sidebar menu and stateful favorites list
-  const [activeMenuTab, setActiveMenuTab] = useState<'discover' | 'favorites' | 'settings'>('discover');
-  const [favorites, setFavorites] = useState<number[]>([]);
+  const [activeMenuTab, setActiveMenuTab] = useState<'discover' | 'favorites' | 'settings' | 'history'>('discover');
+  const [favorites, setFavorites] = useState<RepositorySummary[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
 
   // Premium Dark Mode preferences
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -111,6 +115,54 @@ export default function SearchPage() {
     };
     checkConfigStatus();
   }, []);
+
+  // Load favorites, notifications, and history on mount / tab change
+  useEffect(() => {
+    const savedFavs = localStorage.getItem('repolens-favorites');
+    if (savedFavs) {
+      try {
+        setFavorites(JSON.parse(savedFavs));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    const savedNotes = localStorage.getItem('repolens-notifications');
+    if (savedNotes) {
+      try {
+        setNotifications(JSON.parse(savedNotes));
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      const defaultNotes = [
+        { title: "Welcome to RepoLens", message: "Connect your GitHub account to analyze repositories." }
+      ];
+      setNotifications(defaultNotes);
+      localStorage.setItem('repolens-notifications', JSON.stringify(defaultNotes));
+    }
+  }, []);
+
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('repolens-history');
+    if (savedHistory) {
+      try {
+        setAnalysisHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [activeMenuTab]);
+
+  const handleClearNotifications = () => {
+    setNotifications([]);
+    localStorage.setItem('repolens-notifications', JSON.stringify([]));
+  };
+
+  const handleClearHistory = () => {
+    setAnalysisHistory([]);
+    localStorage.setItem('repolens-history', JSON.stringify([]));
+  };
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,12 +260,15 @@ export default function SearchPage() {
     performSearch(0);
   };
 
-  const toggleFavorite = (id: number) => {
-    if (favorites.includes(id)) {
-      setFavorites(favorites.filter(favId => favId !== id));
+  const toggleFavorite = (repoItem: RepositorySummary) => {
+    let updated: RepositorySummary[];
+    if (favorites.some(fav => fav.id === repoItem.id)) {
+      updated = favorites.filter(fav => fav.id !== repoItem.id);
     } else {
-      setFavorites([...favorites, id]);
+      updated = [...favorites, repoItem];
     }
+    setFavorites(updated);
+    localStorage.setItem('repolens-favorites', JSON.stringify(updated));
   };
 
   const langColors: { [lang: string]: string } = {
@@ -229,7 +284,7 @@ export default function SearchPage() {
   };
 
   const displayedResults = activeMenuTab === 'favorites'
-    ? results.filter(r => favorites.includes(r.id))
+    ? favorites
     : results;
 
   if (!hasKeys) {
@@ -453,7 +508,72 @@ export default function SearchPage() {
           >
             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <Bell size={18} style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.85)' }} />
+          {/* Notifications Dropdown */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Bell 
+              size={18} 
+              onClick={() => setShowNotifications(!showNotifications)}
+              style={{ cursor: 'pointer', color: showNotifications ? '#ffffff' : 'rgba(255,255,255,0.85)' }} 
+            />
+            {notifications.length > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-4px',
+                right: '-4px',
+                background: '#cf222e',
+                color: '#ffffff',
+                fontSize: '0.62rem',
+                borderRadius: '50%',
+                width: '8px',
+                height: '8px',
+                display: 'block'
+              }} />
+            )}
+            {showNotifications && (
+              <div style={{
+                position: 'absolute',
+                top: '28px',
+                right: '0',
+                width: '280px',
+                background: theme.cardBg,
+                border: `1px solid ${theme.border}`,
+                borderRadius: '8px',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                zIndex: 1000,
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: theme.text }}>Notifications</span>
+                  {notifications.length > 0 && (
+                    <button 
+                      onClick={handleClearNotifications}
+                      style={{ background: 'none', border: 'none', color: '#0969da', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+                {notifications.length === 0 ? (
+                  <div style={{ fontSize: '0.8rem', color: theme.textMuted, textAlign: 'center', padding: '16px 0' }}>
+                    No notifications yet.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                    {notifications.map((n, i) => (
+                      <div key={i} style={{ fontSize: '0.78rem', color: theme.text, textAlign: 'left', lineHeight: 1.3, borderBottom: i < notifications.length - 1 ? `1px solid ${theme.border}` : 'none', paddingBottom: '6px' }}>
+                        <div style={{ fontWeight: 600, color: '#0969da', marginBottom: '2px' }}>{n.title}</div>
+                        <div style={{ color: theme.textMuted }}>{n.message}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <Settings 
             size={18} 
             onClick={() => setActiveMenuTab('settings')}
@@ -501,7 +621,8 @@ export default function SearchPage() {
               {[
                 { id: 'discover', label: 'Home Discover', icon: <Search size={16} /> },
                 { id: 'favorites', label: 'Saved Favorites', icon: <Star size={16} /> },
-                { id: 'settings', label: 'System Settings', icon: <Settings size={16} /> }
+                { id: 'settings', label: 'System Settings', icon: <Settings size={16} /> },
+                { id: 'history', label: 'Analysis History', icon: <History size={16} /> }
               ].map(item => {
                 const isActive = activeMenuTab === item.id;
                 return (
@@ -753,6 +874,109 @@ export default function SearchPage() {
 
                 </form>
               </motion.div>
+            ) : activeMenuTab === 'history' ? (
+              // ANALYSIS HISTORY PANEL
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  background: theme.cardBg,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '12px',
+                  padding: '28px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: `1px solid ${theme.border}`, paddingBottom: '16px', marginBottom: '24px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: theme.text }}>Analysis History</h2>
+                    <p style={{ color: theme.textMuted, fontSize: '0.88rem', margin: '4px 0 0 0' }}>
+                      View and quickly reopen recent repository analyses performed by you.
+                    </p>
+                  </div>
+                  {analysisHistory.length > 0 && (
+                    <button
+                      onClick={handleClearHistory}
+                      style={{
+                        background: 'none',
+                        border: `1px solid ${theme.border}`,
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: '#cf222e',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = darkMode ? 'rgba(207,34,46,0.1)' : '#ffebe9')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      Clear History
+                    </button>
+                  )}
+                </div>
+
+                {analysisHistory.length === 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '40px 0', color: theme.textMuted, textAlign: 'center' }}>
+                    <div style={{ fontSize: '2.5rem' }}>⌛</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: theme.text }}>No recent analyses found</div>
+                    <div style={{ fontSize: '0.82rem', maxWidth: '300px' }}>
+                      Go to the Home Discover tab, search for a repository, and click "Analyze" to see your history here.
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {analysisHistory.map((item, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '16px',
+                          borderRadius: '8px',
+                          border: `1px solid ${theme.border}`,
+                          background: theme.sidebarBg,
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+                          <Link
+                            to={`/repository/${item.fullName}`}
+                            style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0969da', textDecoration: 'none' }}
+                          >
+                            {item.fullName}
+                          </Link>
+                          <span style={{ fontSize: '0.78rem', color: theme.textMuted }}>
+                            Owner: <strong>{item.owner}</strong> • Analyzed on: {new Date(item.analyzedAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <Link
+                          to={`/repository/${item.fullName}`}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '6px 14px',
+                            background: '#0969da',
+                            color: '#ffffff',
+                            borderRadius: '6px',
+                            fontSize: '0.82rem',
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                            transition: 'background-color 0.15s'
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#074f9d')}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0969da')}
+                        >
+                          <span>Reopen</span>
+                          <ArrowRight size={14} />
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
             ) : (
               // SEARCH/DISCOVER MAIN VIEWPORT
               <>
@@ -971,7 +1195,7 @@ export default function SearchPage() {
                         </div>
 
                         {displayedResults.map((repoItem, index) => {
-                          const isFav = favorites.includes(repoItem.id);
+                          const isFav = favorites.some(fav => fav.id === repoItem.id);
                           return (
                             <motion.div
                               key={repoItem.id}
@@ -1032,7 +1256,7 @@ export default function SearchPage() {
 
                                 {/* Favorite Button */}
                                 <button
-                                  onClick={() => toggleFavorite(repoItem.id)}
+                                  onClick={() => toggleFavorite(repoItem)}
                                   style={{
                                     background: isFav ? 'rgba(234,179,8,0.1)' : theme.sidebarBg,
                                     border: `1px solid ${theme.border}`,

@@ -213,6 +213,8 @@ export default function RepositoryDetailPage() {
   // Copy URL states
   const [copiedUrlType, setCopiedUrlType] = useState<'https' | 'ssh' | 'share' | null>(null);
   const [bookmarked, setBookmarked] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   // Direct ZIP download progress states
   const [downloadState, setDownloadState] = useState<'idle' | 'preparing' | 'downloading' | 'complete'>('idle');
@@ -226,6 +228,102 @@ export default function RepositoryDetailPage() {
   useEffect(() => {
     localStorage.setItem('repolens-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
+
+  // Load notifications from local storage on mount
+  useEffect(() => {
+    const savedNotes = localStorage.getItem('repolens-notifications');
+    if (savedNotes) {
+      try {
+        setNotifications(JSON.parse(savedNotes));
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      const defaultNotes = [
+        { title: "Welcome to RepoLens", message: "Connect your GitHub account to analyze repositories." }
+      ];
+      setNotifications(defaultNotes);
+      localStorage.setItem('repolens-notifications', JSON.stringify(defaultNotes));
+    }
+  }, []);
+
+  // Update bookmarked state and add to analysis history on detail load
+  useEffect(() => {
+    if (detail) {
+      // 1. Sync bookmark status
+      const savedFavs = localStorage.getItem('repolens-favorites');
+      if (savedFavs) {
+        try {
+          const list: any[] = JSON.parse(savedFavs);
+          setBookmarked(list.some(fav => fav.id === detail.id || fav.fullName === detail.fullName));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // 2. Add to history
+      const savedHistory = localStorage.getItem('repolens-history');
+      let historyList: any[] = [];
+      if (savedHistory) {
+        try {
+          historyList = JSON.parse(savedHistory);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      historyList = historyList.filter((item: any) => item.fullName !== detail.fullName);
+      historyList.unshift({
+        fullName: detail.fullName,
+        owner: detail.owner,
+        repo: detail.fullName.split('/')[1] || '',
+        analyzedAt: new Date().toISOString()
+      });
+      if (historyList.length > 10) {
+        historyList = historyList.slice(0, 10);
+      }
+      localStorage.setItem('repolens-history', JSON.stringify(historyList));
+    }
+  }, [detail]);
+
+  const handleClearNotifications = () => {
+    setNotifications([]);
+    localStorage.setItem('repolens-notifications', JSON.stringify([]));
+  };
+
+  const handleToggleBookmark = () => {
+    if (!detail) return;
+    const saved = localStorage.getItem('repolens-favorites');
+    let list: any[] = [];
+    if (saved) {
+      try {
+        list = JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    const isFav = list.some(fav => fav.id === detail.id || fav.fullName === detail.fullName);
+    if (isFav) {
+      list = list.filter(fav => fav.id !== detail.id && fav.fullName !== detail.fullName);
+      setBookmarked(false);
+    } else {
+      const newFav = {
+        id: detail.id,
+        fullName: detail.fullName,
+        owner: detail.owner,
+        description: detail.description || '',
+        stars: detail.stars || 0,
+        forks: detail.forks || 0,
+        topics: [],
+        lastUpdated: new Date().toISOString(),
+        primaryLanguage: detail.primaryLanguage,
+        visibility: 'public'
+      };
+      list.push(newFav);
+      setBookmarked(true);
+    }
+    localStorage.setItem('repolens-favorites', JSON.stringify(list));
+  };
 
   // Color theme definitions
   const theme = {
@@ -705,7 +803,71 @@ export default function RepositoryDetailPage() {
           >
             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <Bell size={18} color="#ffffff" style={{ cursor: 'pointer' }} />
+          {/* Notifications Dropdown */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Bell 
+              size={18} 
+              onClick={() => setShowNotifications(!showNotifications)}
+              style={{ cursor: 'pointer', color: showNotifications ? '#ffffff' : 'rgba(255,255,255,0.85)' }} 
+            />
+            {notifications.length > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-4px',
+                right: '-4px',
+                background: '#cf222e',
+                color: '#ffffff',
+                fontSize: '0.62rem',
+                borderRadius: '50%',
+                width: '8px',
+                height: '8px',
+                display: 'block'
+              }} />
+            )}
+            {showNotifications && (
+              <div style={{
+                position: 'absolute',
+                top: '28px',
+                right: '0',
+                width: '280px',
+                background: theme.cardBg,
+                border: `1px solid ${theme.border}`,
+                borderRadius: '8px',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                zIndex: 1000,
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: theme.text }}>Notifications</span>
+                  {notifications.length > 0 && (
+                    <button 
+                      onClick={handleClearNotifications}
+                      style={{ background: 'none', border: 'none', color: '#0969da', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+                {notifications.length === 0 ? (
+                  <div style={{ fontSize: '0.8rem', color: theme.textMuted, textAlign: 'center', padding: '16px 0' }}>
+                    No notifications yet.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                    {notifications.map((n, i) => (
+                      <div key={i} style={{ fontSize: '0.78rem', color: theme.text, textAlign: 'left', lineHeight: 1.3, borderBottom: i < notifications.length - 1 ? `1px solid ${theme.border}` : 'none', paddingBottom: '6px' }}>
+                        <div style={{ fontWeight: 600, color: '#0969da', marginBottom: '2px' }}>{n.title}</div>
+                        <div style={{ color: theme.textMuted }}>{n.message}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1299,7 +1461,7 @@ export default function RepositoryDetailPage() {
 
                 <div style={{ display: 'flex', gap: '8px', borderTop: `1px solid ${theme.border}`, paddingTop: '14px', marginTop: '4px' }}>
                   <button
-                    onClick={() => setBookmarked(!bookmarked)}
+                    onClick={handleToggleBookmark}
                     style={{
                       flex: 1,
                       background: bookmarked ? 'rgba(9,105,218,0.05)' : theme.cardBg,
