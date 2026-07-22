@@ -58,6 +58,7 @@ interface AiSummaryData {
 interface ChatMessage {
   sender: 'user' | 'ai';
   text: string;
+  isError?: boolean;
 }
 
 // Global details page data cache to support instant loading (Stale-While-Revalidate)
@@ -642,10 +643,11 @@ export default function RepositoryDetailPage() {
       if (response.ok && json.data) {
         setMessages([...updatedMessages, { sender: 'ai', text: json.data.response }]);
       } else {
-        setMessages([...updatedMessages, { sender: 'ai', text: "Sorry, I couldn't process your request. " + (json.error?.message || '') }]);
+        const errorMsg = json.error?.message || "An unexpected error occurred.";
+        setMessages([...updatedMessages, { sender: 'ai', text: errorMsg, isError: true }]);
       }
     } catch (e: any) {
-      setMessages([...updatedMessages, { sender: 'ai', text: "Network error occurred: " + e.message }]);
+      setMessages([...updatedMessages, { sender: 'ai', text: "Unable to contact the AI service. Please check your internet connection.", isError: true }]);
     } finally {
       setChatLoading(false);
     }
@@ -1334,13 +1336,19 @@ export default function RepositoryDetailPage() {
                     style={{
                       alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
                       maxWidth: '85%',
-                      background: msg.sender === 'user' ? '#0969da' : theme.cardBg,
-                      color: msg.sender === 'user' ? '#ffffff' : theme.text,
-                      padding: '8px 12px',
+                      background: msg.isError 
+                        ? (darkMode ? 'rgba(248, 81, 73, 0.1)' : '#ffebe9') 
+                        : (msg.sender === 'user' ? '#0969da' : theme.cardBg),
+                      color: msg.isError 
+                        ? (darkMode ? '#ff7b72' : '#cf222e') 
+                        : (msg.sender === 'user' ? '#ffffff' : theme.text),
+                      padding: '10px 14px',
                       borderRadius: '6px',
                       boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
                       fontSize: '0.85rem',
-                      border: msg.sender === 'user' ? 'none' : `1px solid ${theme.border}`,
+                      border: msg.isError 
+                        ? `1px solid ${darkMode ? 'rgba(248, 81, 73, 0.4)' : '#ff8585'}` 
+                        : (msg.sender === 'user' ? 'none' : `1px solid ${theme.border}`),
                       lineHeight: 1.45
                     }}
                     dangerouslySetInnerHTML={{

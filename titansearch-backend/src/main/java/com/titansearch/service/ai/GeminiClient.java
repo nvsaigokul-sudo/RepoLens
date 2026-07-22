@@ -22,6 +22,25 @@ import java.util.Map;
 @Slf4j
 public class GeminiClient {
 
+    public static class GeminiException extends RuntimeException {
+        private final int statusCode;
+        private final String userFriendlyMessage;
+
+        public GeminiException(int statusCode, String userFriendlyMessage, String logMessage, Throwable cause) {
+            super(logMessage, cause);
+            this.statusCode = statusCode;
+            this.userFriendlyMessage = userFriendlyMessage;
+        }
+
+        public int getStatusCode() {
+            return statusCode;
+        }
+
+        public String getUserFriendlyMessage() {
+            return userFriendlyMessage;
+        }
+    }
+
     private final RestClient restClient;
     private final String apiKey;
     private final String model;
@@ -198,8 +217,41 @@ public class GeminiClient {
             String responseBody = callGeminiApi(prompt, effectiveKey, null, temperature);
             return cleanJsonResponse(responseBody);
         } catch (Exception e) {
-            log.error("Failed to generate chat response: {}", e.getMessage());
-            return "Sorry, I encountered an error: " + e.getMessage();
+            log.error("Complete Gemini Exception stack trace: ", e);
+
+            int statusCode = 500;
+            String userFriendlyMessage = "An unexpected AI service error occurred. Please try again later.";
+
+            if (e instanceof org.springframework.web.client.HttpClientErrorException ex) {
+                statusCode = ex.getStatusCode().value();
+                if (statusCode == 429) {
+                    userFriendlyMessage = "AI service is temporarily busy. Please wait a few seconds and try again.";
+                } else if (statusCode == 401) {
+                    userFriendlyMessage = "Invalid Gemini API key. Please check your API key in System Settings.";
+                } else if (statusCode == 403) {
+                    userFriendlyMessage = "Your Gemini API key does not have permission to access this model.";
+                }
+            } else if (e instanceof org.springframework.web.client.HttpServerErrorException ex) {
+                statusCode = 500;
+                userFriendlyMessage = "An unexpected AI service error occurred. Please try again later.";
+            } else if (e instanceof org.springframework.web.client.ResourceAccessException ex) {
+                Throwable cause = ex.getCause();
+                if (cause instanceof java.net.SocketTimeoutException || cause instanceof java.net.http.HttpTimeoutException) {
+                    statusCode = 504;
+                    userFriendlyMessage = "The AI request timed out. Please try again.";
+                } else {
+                    statusCode = 503;
+                    userFriendlyMessage = "Unable to contact the AI service. Please check your internet connection.";
+                }
+            } else if (e instanceof java.net.SocketTimeoutException || e instanceof java.net.http.HttpTimeoutException) {
+                statusCode = 504;
+                userFriendlyMessage = "The AI request timed out. Please try again.";
+            } else if (e instanceof java.io.IOException || e instanceof java.net.ConnectException) {
+                statusCode = 503;
+                userFriendlyMessage = "Unable to contact the AI service. Please check your internet connection.";
+            }
+
+            throw new GeminiException(statusCode, userFriendlyMessage, e.getMessage(), e);
         }
     }
 

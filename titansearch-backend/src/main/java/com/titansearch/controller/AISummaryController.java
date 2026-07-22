@@ -110,14 +110,21 @@ public class AISummaryController {
         Optional<AISummaryPojo> summaryOpt = aiSummaryService.getSummary(repository, gitToken, geminiKey);
         String overview = summaryOpt.map(AISummaryPojo::overview).orElse("No summary overview available yet.");
 
-        String aiResponse = geminiClient.generateChatResponse(
-                repository.fullName(),
-                repository.description() != null ? repository.description() : "",
-                overview,
-                userMessage,
-                temperature
-        );
-
-        return ResponseEntity.ok(ApiEnvelope.ok(Map.of("response", aiResponse)));
+        try {
+            String aiResponse = geminiClient.generateChatResponse(
+                    repository.fullName(),
+                    repository.description() != null ? repository.description() : "",
+                    overview,
+                    userMessage,
+                    temperature
+            );
+            return ResponseEntity.ok(ApiEnvelope.ok(Map.of("response", aiResponse)));
+        } catch (com.titansearch.service.ai.GeminiClient.GeminiException ex) {
+            return ResponseEntity.status(ex.getStatusCode())
+                    .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("GEMINI_ERROR", ex.getUserFriendlyMessage())));
+        } catch (Exception ex) {
+            return ResponseEntity.status(500)
+                    .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("INTERNAL_ERROR", "An unexpected AI service error occurred. Please try again later.")));
+        }
     }
 }
