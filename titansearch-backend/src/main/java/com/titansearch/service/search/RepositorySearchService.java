@@ -94,4 +94,8 @@ public class RepositorySearchService {
                 dto.pushedAt()
         );
     }
+
+    public byte[] downloadZip(String owner, String repoName) {
+        return gitHubClient.downloadArchive(owner, repoName);
+    }
 }

@@ -28,10 +28,13 @@ public class AISummaryController {
     @GetMapping("/repositories/{owner}/{repo}/ai-summary")
     @Operation(summary = "Get AI summary (returns 202 PENDING if generation is in progress)")
     public ResponseEntity<ApiEnvelope<?>> getSummary(
-            @PathVariable String owner, @PathVariable String repo) {
+            @PathVariable String owner, 
+            @PathVariable String repo,
+            @RequestHeader(value = "X-GitHub-Token", required = false) String gitToken,
+            @RequestHeader(value = "X-Gemini-Key", required = false) String geminiKey) {
 
         RepositoryDetailResponse repository = repositorySearchService.getDetail(owner, repo);
-        Optional<AISummaryPojo> summaryOpt = aiSummaryService.getSummary(repository);
+        Optional<AISummaryPojo> summaryOpt = aiSummaryService.getSummary(repository, gitToken, geminiKey);
 
         if (summaryOpt.isPresent()) {
             AISummaryPojo summary = summaryOpt.get();
@@ -59,10 +62,13 @@ public class AISummaryController {
     @PostMapping("/ai-summary/regenerate")
     @Operation(summary = "Force regeneration of AI summary")
     public ResponseEntity<ApiEnvelope<?>> regenerateSummary(
-            @RequestParam String owner, @RequestParam String repo) {
+            @RequestParam String owner, 
+            @RequestParam String repo,
+            @RequestHeader(value = "X-GitHub-Token", required = false) String gitToken,
+            @RequestHeader(value = "X-Gemini-Key", required = false) String geminiKey) {
 
         RepositoryDetailResponse repository = repositorySearchService.getDetail(owner, repo);
-        aiSummaryService.forceRegenerate(repository);
+        aiSummaryService.forceRegenerate(repository, gitToken, geminiKey);
 
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(new ApiEnvelope<>(
@@ -77,7 +83,9 @@ public class AISummaryController {
     public ResponseEntity<ApiEnvelope<?>> chatWithRepo(
             @PathVariable String owner,
             @PathVariable String repo,
-            @RequestBody Map<String, String> body) {
+            @RequestBody Map<String, String> body,
+            @RequestHeader(value = "X-GitHub-Token", required = false) String gitToken,
+            @RequestHeader(value = "X-Gemini-Key", required = false) String geminiKey) {
 
         String userMessage = body.get("message");
         if (userMessage == null || userMessage.isBlank()) {
@@ -85,7 +93,7 @@ public class AISummaryController {
         }
 
         RepositoryDetailResponse repository = repositorySearchService.getDetail(owner, repo);
-        Optional<AISummaryPojo> summaryOpt = aiSummaryService.getSummary(repository);
+        Optional<AISummaryPojo> summaryOpt = aiSummaryService.getSummary(repository, gitToken, geminiKey);
         String overview = summaryOpt.map(AISummaryPojo::overview).orElse("No summary overview available yet.");
 
         String aiResponse = geminiClient.generateChatResponse(

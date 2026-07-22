@@ -29,7 +29,7 @@ public class AISummaryService {
     private final Set<String> activeSummaryJobs = ConcurrentHashMap.newKeySet();
     private static final long CACHE_TTL_SECONDS = 86400; // 24 hours
 
-    public Optional<AISummaryPojo> getSummary(RepositoryDetailResponse repository) {
+    public Optional<AISummaryPojo> getSummary(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
         String key = "ai-summary:" + repository.fullName().toLowerCase();
         Optional<AISummaryPojo> cached = cacheService.get(key, AISummaryPojo.class);
 
@@ -37,7 +37,7 @@ public class AISummaryService {
             return cached;
         }
 
-        triggerAsyncGeneration(repository);
+        triggerAsyncGeneration(repository, gitToken, geminiKey);
         return Optional.empty();
     }
 
@@ -45,24 +45,26 @@ public class AISummaryService {
         return activeSummaryJobs.contains(fullName.toLowerCase());
     }
 
-    public void forceRegenerate(RepositoryDetailResponse repository) {
-        triggerAsyncGeneration(repository);
+    public void forceRegenerate(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
+        triggerAsyncGeneration(repository, gitToken, geminiKey);
     }
 
-    private void triggerAsyncGeneration(RepositoryDetailResponse repository) {
+    private void triggerAsyncGeneration(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
         String name = repository.fullName().toLowerCase();
         if (activeSummaryJobs.add(name)) {
             log.info("Triggered async AI summary generation for repository: {}", repository.fullName());
-            generateSummaryAsync(repository);
+            generateSummaryAsync(repository, gitToken, geminiKey);
         } else {
             log.info("AI summary generation for repository {} is already in progress.", repository.fullName());
         }
     }
 
     @Async
-    public void generateSummaryAsync(RepositoryDetailResponse repository) {
+    public void generateSummaryAsync(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
         String fullName = repository.fullName();
         String nameKey = fullName.toLowerCase();
+        com.titansearch.config.SecurityContext.setGitHubToken(gitToken);
+        com.titansearch.config.SecurityContext.setGeminiKey(geminiKey);
         try {
             String owner = fullName.split("/")[0];
             String repoName = fullName.split("/")[1];
@@ -96,6 +98,7 @@ public class AISummaryService {
         } catch (Exception e) {
             log.error("Failed to generate AI summary for repository {}: {}", fullName, e.getMessage());
         } finally {
+            com.titansearch.config.SecurityContext.clear();
             activeSummaryJobs.remove(nameKey);
         }
     }

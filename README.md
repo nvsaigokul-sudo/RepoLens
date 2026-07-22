@@ -208,3 +208,61 @@ To compile changes into the self-contained launcher executable, execute the buil
 .\build_launcher.ps1
 ```
 This generates the packaged client wrapper at `RepoLens.exe`.
+
+---
+
+## 🔍 Detailed Architecture & Technical Walkthrough
+
+This section provides a deep technical walkthrough of the core architectures, security designs, and optimization layers in RepoLens for developers looking to understand or extend the platform.
+
+### 1. The Monorepo Build & Serve Mechanics
+RepoLens packages a React TypeScript SPA and a Spring Boot Maven project into a single deployable artifact.
+- **Frontend Compilation**: During building (`npm run build`), Vite bundles all assets, stylesheets, and router maps into a static distribution directory (`dist/`).
+- **Backend Inclusion**: The compiled frontend assets are copied directly to `src/main/resources/static/` of the backend.
+- **Tomcat Resource Serving**: When the Spring Boot application boots, Tomcat serves the index.html and static files from the resources classpath.
+- **SPA Fallback Routing**: To prevent router breakage on page refreshes (e.g., navigating directly to `/repository/owner/name`), [WebViewController.java](file:///c:/Users/nvsai/Desktop/anti%20gravity/RepoLens/titansearch-backend/src/main/java/com/titansearch/controller/WebViewController.java) routes all non-API web request patterns back to `/index.html`, allowing React Router to handle page resolution on the client side.
+
+### 2. Thread-Local Context Propagation in Asynchronous Tasks
+When a user requests repository analysis or health summaries, the backend schedules async operations using `@Async` on background threads (handled by Spring's task executors) to avoid blocking the main request thread:
+- **The Challenge**: Asynchronous threads do not share the servlet request thread's thread-local storage. Thus, `RequestContextHolder.getRequestAttributes()` returns null in background threads. This prevents standard REST controllers from propagating client-provided headers (`X-GitHub-Token` and `X-Gemini-Key`).
+- **The Solution**: RepoLens implements a [SecurityContext](file:///c:/Users/nvsai/Desktop/anti%20gravity/RepoLens/titansearch-backend/src/main/java/com/titansearch/config/SecurityContext.java) class using `ThreadLocal` variables. The controllers extract the token and keys from the request headers and pass them as method parameters to the asynchronous services. The background threads then populate their own `SecurityContext` at startup.
+- **Integration**: RestClient interceptors and Gemini API clients pull authorization details from `SecurityContext` when `RequestContextHolder` returns null, allowing secure, authenticated API requests in background tasks.
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Controller
+    participant AsyncService
+    participant SecurityContext
+    participant GitHub/Gemini
+
+    Browser->>Controller: GET /ai-summary (with X-GitHub-Token)
+    Controller->>AsyncService: generateSummaryAsync(repository, token)
+    Controller->>Browser: 202 ACCEPTED (PENDING)
+    Note over AsyncService: Runs in background thread pool
+    AsyncService->>SecurityContext: setGitHubToken(token)
+    AsyncService->>GitHub/Gemini: Fetch Data (Interceptor extracts token from SecurityContext)
+    AsyncService->>SecurityContext: clear()
+```
+
+### 3. ZIP Archive Downloader Proxy & CORS Bypass
+GitHub's file archive endpoint redirects browser queries to `codeload.github.com`, which lacks appropriate CORS headers for web-based downloads:
+- **Direct Downloads**: When fetching directly in the browser, the cross-origin preflight/redirect fails.
+- **Proxy Implementation**: RepoLens implements a proxy endpoint `/api/v1/repositories/{owner}/{repo}/zip`.
+- **Server-to-Server Stream**: The React frontend requests this endpoint passing user credentials in the headers. The backend `RestClient` fetches the zip archive directly from GitHub, handles the redirect, streams the binary data as a byte array, and writes it directly to the response output stream with `application/zip` MIME type headers. This circumvents browser CORS checks entirely.
+
+### 4. Custom Markdown Compiler for AI Chat
+To ensure fast, secure, and style-consistent markdown rendering without loading heavy external dependencies:
+- **Markdown Parser**: The chat interface uses a custom regex-based parser, `renderChatMarkdown`, that operates on client message logs.
+- **Parsed Components**:
+  - **Fenced Code Blocks**: Translates ` ```lang code ``` ` to clean `<pre>` blocks with inline-overflow scrolling.
+  - **Tables**: Parses table delimiters (`|`) and structures them into properly formatted HTML tables.
+  - **Bold/Italics**: Translates `**text**` and `*text*` to strong/em elements.
+  - **Lists**: Correctly parses bullet (`*`, `-`, `+`) and numbered (`1.`) lists.
+  - **Links/Paragraphs**: Converts raw URLs and markdown bracket links to secure `_blank` target anchors.
+
+### 5. Stale-While-Revalidate (SWR) & ETag Caching
+To maintain high responsiveness and reduce GitHub API rate-limiting fatigue:
+- **Client Cache**: The frontend cache (`detailsCache`) stores analysis outputs, repository details, and file trees in memory, loading cached views instantly on click before updating them in the background.
+- **HTTP ETags**: GitHub API responses for profile lookups check cached ETag hashes. If unchanged, the server returns `304 Not Modified`, allowing the client to retrieve cached details without consuming API quotas.
+

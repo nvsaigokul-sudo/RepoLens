@@ -27,10 +27,13 @@ public class ResumeValueController {
     @PostMapping("/{owner}/{repo}/resume-analysis")
     @Operation(summary = "Get or trigger AI resume analysis (returns 202 PENDING if in progress)")
     public ResponseEntity<ApiEnvelope<?>> getResumeAnalysis(
-            @PathVariable String owner, @PathVariable String repo) {
+            @PathVariable String owner, 
+            @PathVariable String repo,
+            @RequestHeader(value = "X-GitHub-Token", required = false) String gitToken,
+            @RequestHeader(value = "X-Gemini-Key", required = false) String geminiKey) {
 
         RepositoryDetailResponse repository = repositorySearchService.getDetail(owner, repo);
-        Optional<ResumeAnalysisPojo> analysisOpt = resumeValueService.getResumeAnalysis(repository);
+        Optional<ResumeAnalysisPojo> analysisOpt = resumeValueService.getResumeAnalysis(repository, gitToken, geminiKey);
 
         if (analysisOpt.isPresent()) {
             ResumeAnalysisPojo analysis = analysisOpt.get();

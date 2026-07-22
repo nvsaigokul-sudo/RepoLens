@@ -106,4 +106,17 @@ public class GitHubClient {
             return 0;
         }
     }
+
+    public byte[] downloadArchive(String owner, String repo) {
+        try {
+            return gitHubRestClient.get()
+                    .uri("/repos/{owner}/{repo}/zipball", owner, repo)
+                    .header("Accept", "*/*")
+                    .retrieve()
+                    .body(byte[].class);
+        } catch (RestClientException e) {
+            log.error("GitHub download zip failed for {}/{}: {}", owner, repo, e.getMessage());
+            throw new GitHubApiException("Failed to download ZIP from GitHub", e);
+        }
+    }
 }

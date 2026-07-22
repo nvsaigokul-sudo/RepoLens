@@ -32,7 +32,7 @@ public class ResumeValueService {
     private final Set<String> activeResumeJobs = ConcurrentHashMap.newKeySet();
     private static final long CACHE_TTL_SECONDS = 86400; // 24 hours
 
-    public Optional<ResumeAnalysisPojo> getResumeAnalysis(RepositoryDetailResponse repository) {
+    public Optional<ResumeAnalysisPojo> getResumeAnalysis(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
         String key = "resume-analysis:" + repository.fullName().toLowerCase();
         Optional<ResumeAnalysisPojo> cached = cacheService.get(key, ResumeAnalysisPojo.class);
 
@@ -40,7 +40,7 @@ public class ResumeValueService {
             return cached;
         }
 
-        triggerAsyncGeneration(repository);
+        triggerAsyncGeneration(repository, gitToken, geminiKey);
         return Optional.empty();
     }
 
@@ -48,20 +48,22 @@ public class ResumeValueService {
         return activeResumeJobs.contains(fullName.toLowerCase());
     }
 
-    private void triggerAsyncGeneration(RepositoryDetailResponse repository) {
+    private void triggerAsyncGeneration(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
         String name = repository.fullName().toLowerCase();
         if (activeResumeJobs.add(name)) {
             log.info("Triggered async resume evaluation for repository: {}", repository.fullName());
-            generateResumeAnalysisAsync(repository);
+            generateResumeAnalysisAsync(repository, gitToken, geminiKey);
         } else {
             log.info("Resume evaluation for repository {} is already in progress.", repository.fullName());
         }
     }
 
     @Async
-    public void generateResumeAnalysisAsync(RepositoryDetailResponse repository) {
+    public void generateResumeAnalysisAsync(RepositoryDetailResponse repository, String gitToken, String geminiKey) {
         String fullName = repository.fullName();
         String nameKey = fullName.toLowerCase();
+        com.titansearch.config.SecurityContext.setGitHubToken(gitToken);
+        com.titansearch.config.SecurityContext.setGeminiKey(geminiKey);
         try {
             String owner = fullName.split("/")[0];
             String repoName = fullName.split("/")[1];
@@ -107,6 +109,7 @@ public class ResumeValueService {
         } catch (Exception e) {
             log.error("Failed to generate resume analysis for repository {}: {}", fullName, e.getMessage());
         } finally {
+            com.titansearch.config.SecurityContext.clear();
             activeResumeJobs.remove(nameKey);
         }
     }

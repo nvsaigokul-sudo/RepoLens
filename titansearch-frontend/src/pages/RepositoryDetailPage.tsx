@@ -73,6 +73,99 @@ interface CacheEntry {
 const detailsCache: { [repoName: string]: CacheEntry } = {};
 const etagCache: { [url: string]: { etag: string; data: any } } = {};
 
+const renderChatMarkdown = (text: string, theme: any, darkMode: boolean) => {
+  if (!text) return '';
+  
+  // Escape HTML characters
+  let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // Helper to parse table
+  const parseTable = (tableLines: string[]): string => {
+    if (tableLines.length < 2) return tableLines.join('\n');
+    const headerRow = tableLines[0];
+    const parseRow = (row: string, cellTag: string) => {
+      const cells = row.split('|').map(c => c.trim());
+      if (cells[0] === '') cells.shift();
+      if (cells[cells.length - 1] === '') cells.pop();
+      return `<tr>${cells.map(c => `<${cellTag} style="border: 1px solid ${theme.border}; padding: 6px 10px; font-size: 0.8rem; font-weight: ${cellTag === 'th' ? 'bold' : 'normal'}">${c}</${cellTag}>`).join('')}</tr>`;
+    };
+
+    try {
+      const headerHtml = `<thead>${parseRow(headerRow, 'th')}</thead>`;
+      const bodyRows = tableLines.slice(2).map(row => parseRow(row, 'td')).join('');
+      const bodyHtml = `<tbody>${bodyRows}</tbody>`;
+      return `<div style="overflow-x: auto; margin: 12px 0;"><table style="border-collapse: collapse; width: 100%; border: 1px solid ${theme.border}; text-align: left;">${headerHtml}${bodyHtml}</table></div>`;
+    } catch (e) {
+      return tableLines.join('\n');
+    }
+  };
+
+  // 1. Block level: Fenced Code Blocks (```lang ... ```)
+  const codeBlocks: string[] = [];
+  escaped = escaped.replace(/```(\w*)\n([\s\S]*?)\n```/g, (_, lang, code) => {
+    const index = codeBlocks.length;
+    codeBlocks.push(`<pre style="background: ${darkMode ? '#161b22' : '#f6f8fa'}; border: 1px solid ${theme.border}; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: monospace; font-size: 0.82rem; margin: 12px 0; color: ${theme.text};"><code class="language-${lang}">${code}</code></pre>`);
+    return `__CODE_BLOCK_PLACEHOLDER_${index}__`;
+  });
+
+  // 2. Block level: Tables
+  const lines = escaped.split('\n');
+  let inTable = false;
+  let tableLines: string[] = [];
+  const processedLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('|') && line.endsWith('|')) {
+      inTable = true;
+      tableLines.push(line);
+    } else {
+      if (inTable) {
+        processedLines.push(parseTable(tableLines));
+        tableLines = [];
+        inTable = false;
+      }
+      processedLines.push(lines[i]);
+    }
+  }
+  if (inTable && tableLines.length > 0) {
+    processedLines.push(parseTable(tableLines));
+  }
+  escaped = processedLines.join('\n');
+
+  // 3. Inline Links: [text](url)
+  escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" rel="noopener noreferrer" style="color: #0969da; text-decoration: underline;">$1</a>`);
+
+  // 4. Headings
+  escaped = escaped.replace(/^# (.*$)/gim, `<h1 style="font-size:1.25rem; border-bottom:1px solid ${theme.border}; padding-bottom:4px; margin:16px 0 8px 0; font-weight:700; color:${theme.text};">$1</h1>`);
+  escaped = escaped.replace(/^## (.*$)/gim, `<h2 style="font-size:1.15rem; border-bottom:1px solid ${theme.border}; padding-bottom:3px; margin:14px 0 6px 0; font-weight:600; color:${theme.text};">$1</h2>`);
+  escaped = escaped.replace(/^### (.*$)/gim, `<h3 style="font-size:1.05rem; margin:12px 0 6px 0; font-weight:600; color:${theme.text};">$1</h3>`);
+  escaped = escaped.replace(/^#### (.*$)/gim, `<h4 style="font-size:0.95rem; margin:10px 0 4px 0; font-weight:600; color:${theme.text};">$1</h4>`);
+
+  // 5. Lists (Bullet & Numbered)
+  escaped = escaped.replace(/^\s*[\*\-\+]\s+(.*$)/gim, `<li style="margin-left:16px; list-style-type:disc; margin-bottom:4px; color:${theme.text};">$1</li>`);
+  escaped = escaped.replace(/^\s*(\d+)\.\s+(.*$)/gim, `<li style="margin-left:16px; list-style-type:decimal; margin-bottom:4px; color:${theme.text};">$2</li>`);
+
+  // 6. Bold & Italic
+  escaped = escaped.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>');
+  escaped = escaped.replace(/\*([\s\S]*?)\*/g, '<em>$1</em>');
+  escaped = escaped.replace(/__([\s\S]*?)__/g, '<strong>$1</strong>');
+  escaped = escaped.replace(/_([\s\S]*?)_/g, '<em>$1</em>');
+
+  // 7. Inline code
+  escaped = escaped.replace(/`([^`\n]+)`/g, `<code style="background: ${darkMode ? '#21262d' : '#afb8c133'}; padding: 2px 4px; border-radius: 4px; font-family: monospace; font-size: 0.85em; color: #e06c75;">$1</code>`);
+
+  // 8. Paragraphs & Line Breaks
+  escaped = escaped.replace(/\n\n/g, `<p style="margin: 8px 0; line-height: 1.4; color: ${theme.text};"></p>`);
+  
+  // Restore code block placeholders
+  codeBlocks.forEach((htmlBlock, index) => {
+    escaped = escaped.replace(`__CODE_BLOCK_PLACEHOLDER_${index}__`, htmlBlock);
+  });
+
+  return escaped;
+};
+
 export default function RepositoryDetailPage() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
   const navigate = useNavigate();
@@ -96,6 +189,8 @@ export default function RepositoryDetailPage() {
   const [similarRepos, setSimilarRepos] = useState<SimilarRepo[]>([]);
   const [resumeAnalysis, setResumeAnalysis] = useState<ResumeAnalysisData | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummaryData | null>(null);
+  const [aiSummaryPending, setAiSummaryPending] = useState(false);
+  const [resumeAnalysisPending, setResumeAnalysisPending] = useState(false);
 
   // Search input in header
   const [headerSearch, setHeaderSearch] = useState('');
@@ -288,14 +383,25 @@ export default function RepositoryDetailPage() {
         headers: getAuthHeaders()
       });
       const json = await res.json();
-      if (res.ok && json.data) {
+      if (res.status === 202) {
+        setAiSummaryPending(true);
+        if (!signal.aborted) {
+          setTimeout(() => {
+            if (!signal.aborted) fetchAiSummary(signal);
+          }, 3000);
+        }
+      } else if (res.ok && json.data) {
+        setAiSummaryPending(false);
         setAiSummary(json.data);
         if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
         detailsCache[repoFullName].aiSummary = json.data;
+      } else {
+        setAiSummaryPending(false);
       }
     } catch (e: any) {
       if (e.name === 'AbortError') return;
       console.error(e);
+      setAiSummaryPending(false);
     }
   };
 
@@ -307,14 +413,30 @@ export default function RepositoryDetailPage() {
         headers: getAuthHeaders()
       });
       const json = await res.json();
-      if (res.ok && json.data) {
-        setResumeAnalysis(json.data);
+      if (res.status === 202) {
+        setResumeAnalysisPending(true);
+        if (!signal.aborted) {
+          setTimeout(() => {
+            if (!signal.aborted) triggerResumeAnalysis(signal);
+          }, 3000);
+        }
+      } else if (res.ok && json.data) {
+        setResumeAnalysisPending(false);
+        const mappedData = {
+          score: json.data.resumeScore || 0,
+          strengths: Array.isArray(json.data.strengths) ? json.data.strengths.join('\n') : (json.data.strengths || ''),
+          weaknesses: Array.isArray(json.data.weaknesses) ? json.data.weaknesses.join('\n') : (json.data.weaknesses || '')
+        };
+        setResumeAnalysis(mappedData);
         if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
-        detailsCache[repoFullName].resumeAnalysis = json.data;
+        detailsCache[repoFullName].resumeAnalysis = mappedData;
+      } else {
+        setResumeAnalysisPending(false);
       }
     } catch (e: any) {
       if (e.name === 'AbortError') return;
       console.error(e);
+      setResumeAnalysisPending(false);
     }
   };
 
@@ -341,6 +463,8 @@ export default function RepositoryDetailPage() {
         setSimilarRepos([]);
         setResumeAnalysis(null);
         setAiSummary(null);
+        setAiSummaryPending(true);
+        setResumeAnalysisPending(true);
         
         fetchDetail(signal);
         fetchOwnerData(signal);
@@ -401,8 +525,10 @@ export default function RepositoryDetailPage() {
       setDownloadProgress(50);
       setDownloadState('downloading');
       
-      const zipUrl = `https://api.github.com/repos/${owner || ''}/${repo || ''}/zipball`;
-      const response = await fetch(zipUrl);
+      const zipUrl = `${API_BASE_URL}/api/v1/repositories/${repoFullName}/zip`;
+      const response = await fetch(zipUrl, {
+        headers: getAuthHeaders()
+      });
       if (!response.ok) throw new Error("Failed to retrieve ZIP package");
       
       setDownloadProgress(80);
@@ -464,6 +590,8 @@ export default function RepositoryDetailPage() {
       setSimilarRepos([]);
       setResumeAnalysis(null);
       setAiSummary(null);
+      setAiSummaryPending(true);
+      setResumeAnalysisPending(true);
     }
 
     fetchDetail(signal);
@@ -636,12 +764,12 @@ export default function RepositoryDetailPage() {
         {/* 2-Column Split view */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '70% 30%',
+          gridTemplateColumns: '60% 40%',
           gap: '28px',
           alignItems: 'start'
         }}>
           
-          {/* LEFT COLUMN (70%) */}
+          {/* LEFT COLUMN (60%) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
             {/* Repository Header */}
@@ -833,35 +961,51 @@ export default function RepositoryDetailPage() {
                       <Sparkles size={18} color="#0969da" />
                       <h3 style={{ fontSize: '1rem', fontWeight: 800, color: theme.text, margin: 0 }}>Project Summary</h3>
                     </div>
-                    <p style={{ fontSize: '0.9rem', color: theme.text, lineHeight: 1.5, margin: 0 }}>
-                      {aiSummary?.overview || 'No AI summary generated. Sync the repository or configure the Gemini key to view details.'}
-                    </p>
-
-                    {aiSummary?.mainPurpose && (
-                      <div style={{ marginTop: '20px' }}>
-                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: theme.textMuted, margin: '0 0 6px 0' }}>BEST USE CASES & MAIN PURPOSE</h4>
-                        <p style={{ fontSize: '0.88rem', color: theme.text, lineHeight: 1.5, margin: 0 }}>{aiSummary.mainPurpose}</p>
+                    {aiSummaryPending ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div className="spin-icon" style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #eaeef2', borderTopColor: '#0969da' }} />
+                        <span style={{ fontSize: '0.88rem', color: theme.textMuted }}>Generating AI Summary with Gemini...</span>
                       </div>
+                    ) : (
+                      <>
+                        <p style={{ fontSize: '0.9rem', color: theme.text, lineHeight: 1.5, margin: 0 }}>
+                          {aiSummary?.overview || 'No AI summary generated. Sync the repository or configure the Gemini key to view details.'}
+                        </p>
+
+                        {aiSummary?.mainPurpose && (
+                          <div style={{ marginTop: '20px' }}>
+                            <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: theme.textMuted, margin: '0 0 6px 0' }}>BEST USE CASES & MAIN PURPOSE</h4>
+                            <p style={{ fontSize: '0.88rem', color: theme.text, lineHeight: 1.5, margin: 0 }}>{aiSummary.mainPurpose}</p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
                   {/* Strengths & Weaknesses row */}
-                  {resumeAnalysis && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div style={{ background: darkMode ? 'rgba(46,160,67,0.1)' : '#dafbe1', border: `1px solid ${darkMode ? 'rgba(46,160,67,0.3)' : 'rgba(26,127,55,0.2)'}`, borderRadius: '8px', padding: '20px' }}>
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: darkMode ? '#3fb950' : '#1a7f37', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span>✓ Key Strengths</span>
-                        </h4>
-                        <p style={{ fontSize: '0.85rem', color: darkMode ? '#a5d6a7' : '#1a7f37', lineHeight: 1.4, margin: 0 }}>{resumeAnalysis.strengths}</p>
-                      </div>
-                      
-                      <div style={{ background: darkMode ? 'rgba(248,81,73,0.1)' : '#ffebe9', border: `1px solid ${darkMode ? 'rgba(248,81,73,0.3)' : 'rgba(207,34,46,0.2)'}`, borderRadius: '8px', padding: '20px' }}>
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: darkMode ? '#f85149' : '#cf222e', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span>⚠ Areas for Improvement</span>
-                        </h4>
-                        <p style={{ fontSize: '0.85rem', color: darkMode ? '#ff79c6' : '#a40e26', lineHeight: 1.4, margin: 0 }}>{resumeAnalysis.weaknesses}</p>
-                      </div>
+                  {resumeAnalysisPending ? (
+                    <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="spin-icon" style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #eaeef2', borderTopColor: '#0969da' }} />
+                      <span style={{ fontSize: '0.88rem', color: theme.textMuted }}>Analyzing repository strengths and areas for improvement...</span>
                     </div>
+                  ) : (
+                    resumeAnalysis && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div style={{ background: darkMode ? 'rgba(46,160,67,0.1)' : '#dafbe1', border: `1px solid ${darkMode ? 'rgba(46,160,67,0.3)' : 'rgba(26,127,55,0.2)'}`, borderRadius: '8px', padding: '20px' }}>
+                          <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: darkMode ? '#3fb950' : '#1a7f37', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>✓ Key Strengths</span>
+                          </h4>
+                          <p style={{ fontSize: '0.85rem', color: darkMode ? '#a5d6a7' : '#1a7f37', lineHeight: 1.4, margin: 0 }}>{resumeAnalysis.strengths}</p>
+                        </div>
+                        
+                        <div style={{ background: darkMode ? 'rgba(248,81,73,0.1)' : '#ffebe9', border: `1px solid ${darkMode ? 'rgba(248,81,73,0.3)' : 'rgba(207,34,46,0.2)'}`, borderRadius: '8px', padding: '20px' }}>
+                          <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: darkMode ? '#f85149' : '#cf222e', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>⚠ Areas for Improvement</span>
+                          </h4>
+                          <p style={{ fontSize: '0.85rem', color: darkMode ? '#ff79c6' : '#a40e26', lineHeight: 1.4, margin: 0 }}>{resumeAnalysis.weaknesses}</p>
+                        </div>
+                      </div>
+                    )
                   )}
 
                   {/* Architecture & Stack details */}
@@ -991,7 +1135,7 @@ export default function RepositoryDetailPage() {
               </div>
               
               {/* Message Log */}
-              <div style={{ height: '200px', padding: '14px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', background: darkMode ? '#0d1117' : '#fafafa', borderBottom: `1px solid ${theme.border}` }}>
+              <div style={{ height: '380px', padding: '14px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', background: darkMode ? '#0d1117' : '#fafafa', borderBottom: `1px solid ${theme.border}` }}>
                 {messages.map((msg, i) => (
                   <div
                     key={i}
@@ -1003,16 +1147,19 @@ export default function RepositoryDetailPage() {
                       padding: '8px 12px',
                       borderRadius: '6px',
                       boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                      fontSize: '0.82rem',
+                      fontSize: '0.85rem',
                       border: msg.sender === 'user' ? 'none' : `1px solid ${theme.border}`,
-                      lineHeight: 1.35
+                      lineHeight: 1.45
                     }}
-                  >
-                    {msg.text}
-                  </div>
+                    dangerouslySetInnerHTML={{
+                      __html: msg.sender === 'user'
+                        ? msg.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, '<br />')
+                        : renderChatMarkdown(msg.text, theme, darkMode)
+                    }}
+                  />
                 ))}
                 {chatLoading && (
-                  <div style={{ alignSelf: 'flex-start', background: theme.cardBg, color: theme.textMuted, padding: '8px 12px', borderRadius: '6px', fontSize: '0.82rem', border: `1px solid ${theme.border}` }}>
+                  <div style={{ alignSelf: 'flex-start', background: theme.cardBg, color: theme.textMuted, padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', border: `1px solid ${theme.border}` }}>
                     Thinking...
                   </div>
                 )}
@@ -1042,7 +1189,7 @@ export default function RepositoryDetailPage() {
                   e.preventDefault();
                   handleSendMessage(chatInput);
                 }}
-                style={{ padding: '10px', display: 'flex', gap: '6px', background: theme.cardBg }}
+                style={{ padding: '12px', display: 'flex', gap: '6px', background: theme.cardBg }}
               >
                 <input
                   type="text"
@@ -1055,8 +1202,8 @@ export default function RepositoryDetailPage() {
                     background: theme.inputBg,
                     border: `1px solid ${theme.border}`,
                     borderRadius: '6px',
-                    padding: '8px 10px',
-                    fontSize: '0.82rem',
+                    padding: '10px 12px',
+                    fontSize: '0.88rem',
                     color: theme.text,
                     outline: 'none'
                   }}
@@ -1069,8 +1216,8 @@ export default function RepositoryDetailPage() {
                     color: '#ffffff',
                     border: 'none',
                     borderRadius: '6px',
-                    padding: '0 12px',
-                    fontSize: '0.82rem',
+                    padding: '0 16px',
+                    fontSize: '0.88rem',
                     fontWeight: 600,
                     cursor: 'pointer'
                   }}

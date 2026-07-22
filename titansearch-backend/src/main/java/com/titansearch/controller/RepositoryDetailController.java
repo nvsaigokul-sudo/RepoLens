@@ -30,4 +30,15 @@ public class RepositoryDetailController {
             @PathVariable String owner, @PathVariable String repo) {
         return ResponseEntity.ok(ApiEnvelope.ok(repositorySearchService.getDetail(owner, repo)));
     }
+
+    @GetMapping("/{owner}/{repo}/zip")
+    @Operation(summary = "Download repository ZIP archive")
+    public ResponseEntity<byte[]> downloadZip(
+            @PathVariable String owner, @PathVariable String repo) {
+        byte[] zipBytes = repositorySearchService.downloadZip(owner, repo);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + owner + "-" + repo + ".zip\"")
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/zip")
+                .body(zipBytes);
+    }
 }

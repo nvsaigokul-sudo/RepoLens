@@ -46,6 +46,10 @@ public class GeminiClient {
                 return customGeminiKey;
             }
         }
+        String threadLocalKey = com.titansearch.config.SecurityContext.getGeminiKey();
+        if (threadLocalKey != null && !threadLocalKey.isBlank()) {
+            return threadLocalKey;
+        }
         return apiKey;
     }
 
@@ -78,7 +82,7 @@ public class GeminiClient {
             Do not include any markdown block fences like ```json, return only the raw JSON.
             """.formatted(repoName, description, String.join(", ", techStack), readmePreview);
 
-        String responseBody = callGeminiApi(prompt, effectiveKey);
+        String responseBody = callGeminiApi(prompt, effectiveKey, "application/json");
         try {
             return objectMapper.readValue(cleanJsonResponse(responseBody), GeminiSummaryDto.class);
         } catch (Exception e) {
@@ -118,7 +122,7 @@ public class GeminiClient {
             Do not include any markdown block fences like ```json, return only the raw JSON.
             """.formatted(repoName, description, String.join(", ", techStack), healthScore, readmePreview);
 
-        String responseBody = callGeminiApi(prompt, effectiveKey);
+        String responseBody = callGeminiApi(prompt, effectiveKey, "application/json");
         try {
             return objectMapper.readValue(cleanJsonResponse(responseBody), GeminiResumeAnalysisDto.class);
         } catch (Exception e) {
@@ -146,7 +150,7 @@ public class GeminiClient {
             """.formatted(repoName, description, summaryOverview, userQuery);
 
         try {
-            String responseBody = callGeminiApi(prompt, effectiveKey);
+            String responseBody = callGeminiApi(prompt, effectiveKey, null);
             return cleanJsonResponse(responseBody);
         } catch (Exception e) {
             log.error("Failed to generate chat response: {}", e.getMessage());
@@ -154,16 +158,18 @@ public class GeminiClient {
         }
     }
 
-    private String callGeminiApi(String prompt, String effectiveKey) {
+    private String callGeminiApi(String prompt, String effectiveKey, String responseMimeType) {
+        Map<String, Object> generationConfig = responseMimeType != null
+                ? Map.of("responseMimeType", responseMimeType)
+                : Map.of();
+
         Map<String, Object> requestBody = Map.of(
             "contents", List.of(
                 Map.of("parts", List.of(
                     Map.of("text", prompt)
                 ))
             ),
-            "generationConfig", Map.of(
-                "responseMimeType", "application/json"
-            )
+            "generationConfig", generationConfig
         );
 
         return restClient.post()
