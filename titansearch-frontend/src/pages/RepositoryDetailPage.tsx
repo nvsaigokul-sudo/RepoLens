@@ -1151,7 +1151,7 @@ export default function RepositoryDetailPage() {
                     <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
                       <div style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 600 }}>MAINTAINABILITY</div>
                       <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0969da', margin: '8px 0' }}>
-                        {healthScore?.breakdown.maturityScore || '88'}/100
+                        {healthScore?.breakdown?.maturityScore || '88'}/100
                       </div>
                       <div style={{ fontSize: '0.72rem', color: theme.textMuted }}>Structure rating</div>
                     </div>
@@ -1159,7 +1159,7 @@ export default function RepositoryDetailPage() {
                     <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
                       <div style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 600 }}>CODE QUALITY</div>
                       <div style={{ fontSize: '2rem', fontWeight: 800, color: '#85144b', margin: '8px 0' }}>
-                        {healthScore?.breakdown.documentationScore || '92'}/100
+                        {healthScore?.breakdown?.documentationScore || '92'}/100
                       </div>
                       <div style={{ fontSize: '0.72rem', color: theme.textMuted }}>Complexity / Doc score</div>
                     </div>
@@ -1167,7 +1167,7 @@ export default function RepositoryDetailPage() {
                     <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
                       <div style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 600 }}>POPULARITY</div>
                       <div style={{ fontSize: '2rem', fontWeight: 800, color: '#bf5700', margin: '8px 0' }}>
-                        {healthScore?.breakdown.popularityScore || '78'}/100
+                        {healthScore?.breakdown?.popularityScore || '78'}/100
                       </div>
                       <div style={{ fontSize: '0.72rem', color: theme.textMuted }}>Star Overlaps</div>
                     </div>
