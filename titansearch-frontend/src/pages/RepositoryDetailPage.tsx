@@ -1296,7 +1296,7 @@ export default function RepositoryDetailPage() {
                     </p>
 
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {techStack.length > 0 ? techStack.map((tech, i) => (
+                      {Array.isArray(techStack) && techStack.length > 0 ? techStack.map((tech, i) => (
                         <span key={i} style={{
                           background: theme.sidebarBg,
                           border: `1px solid ${theme.border}`,
@@ -1648,7 +1648,7 @@ export default function RepositoryDetailPage() {
           <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: theme.text, margin: '0 0 16px 0' }}>Similar & Recommended Repositories</h3>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-            {similarRepos.length > 0 ? similarRepos.slice(0, 3).map((item, i) => (
+            {Array.isArray(similarRepos) && similarRepos.length > 0 ? similarRepos.slice(0, 3).map((item, i) => (
               <div key={i} style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '18px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', fontWeight: 700, color: '#0969da' }}>
                   <Folder size={15} />

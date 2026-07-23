@@ -125,7 +125,7 @@ export default function ArchitectureDiagram({ diagramData }: ArchitectureDiagram
         </defs>
 
         {/* Draw Edges */}
-        {edges.map((edge, idx) => {
+        {edges && Array.isArray(edges) && edges.map((edge, idx) => {
           const fromPos = nodePositions[edge.from];
           const toPos = nodePositions[edge.to];
 
