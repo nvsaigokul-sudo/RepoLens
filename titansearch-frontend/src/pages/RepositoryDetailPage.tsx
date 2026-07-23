@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   RefreshCw, FileText, Bell, Star, GitFork, Eye, AlertCircle,
-  Globe, Copy, Check, ExternalLink, Bookmark, Download, Sparkles, Folder, Moon, Sun
+  Globe, Copy, Check, ExternalLink, Bookmark, Download, Sparkles, Folder, Moon, Sun,
+  GitBranch, TrendingUp, CheckSquare
 } from 'lucide-react';
 import FileExplorer from '../components/FileExplorer';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
@@ -45,6 +46,8 @@ interface ResumeAnalysisData {
   score: number;
   strengths: string;
   weaknesses: string;
+  industryRelevance?: string;
+  suggestedImprovements?: string[];
 }
 
 interface AiSummaryData {
@@ -73,6 +76,25 @@ interface CacheEntry {
 }
 const detailsCache: { [repoName: string]: CacheEntry } = {};
 const etagCache: { [url: string]: { etag: string; data: any } } = {};
+
+const Skeleton = ({ width, height, borderRadius = '4px', darkMode, style = {} }: { width: string; height: string; borderRadius?: string; darkMode: boolean; style?: React.CSSProperties }) => {
+  const start = darkMode ? '#21262d' : '#eaeef2';
+  const middle = darkMode ? '#30363d' : '#f6f8fa';
+  return (
+    <div
+      className="skeleton-shimmer"
+      style={{
+        width,
+        height,
+        borderRadius,
+        background: `linear-gradient(90deg, ${start} 25%, ${middle} 37%, ${start} 63%)`,
+        backgroundSize: '400% 100%',
+        animation: 'shimmer 1.4s ease infinite',
+        ...style
+      }}
+    />
+  );
+};
 
 const renderChatMarkdown = (text: string, theme: any, darkMode: boolean) => {
   if (!text) return '';
@@ -592,7 +614,9 @@ export default function RepositoryDetailPage() {
         const mappedData = {
           score: json.data.resumeScore || 0,
           strengths: Array.isArray(json.data.strengths) ? json.data.strengths.join('\n') : (json.data.strengths || ''),
-          weaknesses: Array.isArray(json.data.weaknesses) ? json.data.weaknesses.join('\n') : (json.data.weaknesses || '')
+          weaknesses: Array.isArray(json.data.weaknesses) ? json.data.weaknesses.join('\n') : (json.data.weaknesses || ''),
+          industryRelevance: json.data.industryRelevance || '',
+          suggestedImprovements: Array.isArray(json.data.suggestedImprovements) ? json.data.suggestedImprovements : []
         };
         setResumeAnalysis(mappedData);
         if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
@@ -1139,7 +1163,7 @@ export default function RepositoryDetailPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   
                   {/* Scores dashboard */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 768 ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: '16px' }}>
                     <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
                       <div style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 600 }}>OVERALL HEALTH</div>
                       <div style={{ fontSize: '2rem', fontWeight: 800, color: '#1a7f37', margin: '8px 0' }}>
@@ -1165,153 +1189,252 @@ export default function RepositoryDetailPage() {
                     </div>
 
                     <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 600 }}>POPULARITY</div>
-                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#bf5700', margin: '8px 0' }}>
-                        {healthScore?.breakdown?.popularityScore || '78'}/100
+                      <div style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 600 }}>PORTFOLIO SCORE</div>
+                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#bc8cff', margin: '8px 0' }}>
+                        {resumeAnalysisPending ? (
+                          <Skeleton width="60px" height="32px" darkMode={darkMode} style={{ margin: '8px 0' }} />
+                        ) : (
+                          (resumeAnalysis?.score !== undefined ? resumeAnalysis.score.toFixed(1) : '8.0') + '/10.0'
+                        )}
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: theme.textMuted }}>Star Overlaps</div>
+                      <div style={{ fontSize: '0.72rem', color: theme.textMuted }}>Resume strength rating</div>
                     </div>
                   </div>
 
-                  {/* AI Summary and main purposes */}
-                  <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                      <Sparkles size={18} color="#0969da" />
-                      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: theme.text, margin: 0 }}>Project Summary</h3>
-                    </div>
-                    {aiSummaryPending ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div className="spin-icon" style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #eaeef2', borderTopColor: '#0969da' }} />
-                        <span style={{ fontSize: '0.88rem', color: theme.textMuted }}>Generating AI Summary with Gemini...</span>
+                  {/* Content columns */}
+                  <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 1024 ? '60% 40%' : '1fr', gap: '24px', alignItems: 'start' }}>
+                    
+                    {/* LEFT COLUMN: Summary & Architecture & Tech Stack */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                      
+                      {/* Project Summary and main purposes */}
+                      <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                          <Sparkles size={18} color="#0969da" />
+                          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: theme.text, margin: 0 }}>Project Summary & Main Purpose</h3>
+                        </div>
+                        {aiSummaryPending ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <Skeleton width="100%" height="16px" darkMode={darkMode} />
+                            <Skeleton width="90%" height="16px" darkMode={darkMode} />
+                            <Skeleton width="95%" height="16px" darkMode={darkMode} />
+                            <div style={{ height: '16px' }} />
+                            <Skeleton width="180px" height="14px" darkMode={darkMode} style={{ marginBottom: '8px' }} />
+                            <Skeleton width="80%" height="16px" darkMode={darkMode} />
+                          </div>
+                        ) : aiSummaryError ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ fontSize: '0.88rem', color: darkMode ? '#ff7b72' : '#cf222e' }}>{aiSummaryError}</div>
+                            <button
+                              onClick={() => {
+                                const controller = new AbortController();
+                                setAiSummaryPending(true);
+                                setAiSummaryError(null);
+                                fetchAiSummary(controller.signal);
+                              }}
+                              style={{
+                                alignSelf: 'flex-start',
+                                background: '#0969da',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Retry Summary
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <p style={{ fontSize: '0.9rem', color: theme.text, lineHeight: 1.6, margin: 0 }}>
+                              {aiSummary?.overview || 'No AI summary generated. Sync the repository or configure the Gemini key to view details.'}
+                            </p>
+
+                            {aiSummary?.mainPurpose && (
+                              <div style={{ marginTop: '20px' }}>
+                                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: theme.textMuted, margin: '0 0 8px 0', letterSpacing: '0.05em' }}>BEST USE CASES & MAIN PURPOSE</h4>
+                                <p style={{ fontSize: '0.88rem', color: theme.text, lineHeight: 1.5, margin: 0 }}>{aiSummary.mainPurpose}</p>
+                              </div>
+                            )}
+
+                            {aiSummary?.learningValue && (
+                              <div style={{ marginTop: '20px' }}>
+                                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: theme.textMuted, margin: '0 0 8px 0', letterSpacing: '0.05em' }}>LEARNING VALUE & EXPERIENCE</h4>
+                                <p style={{ fontSize: '0.88rem', color: theme.text, lineHeight: 1.5, margin: 0 }}>{aiSummary.learningValue}</p>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
-                    ) : aiSummaryError ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ fontSize: '0.88rem', color: darkMode ? '#ff7b72' : '#cf222e' }}>{aiSummaryError}</div>
-                        <button
-                          onClick={() => {
-                            const controller = new AbortController();
-                            setAiSummaryPending(true);
-                            setAiSummaryError(null);
-                            fetchAiSummary(controller.signal);
-                          }}
-                          style={{
-                            alignSelf: 'flex-start',
-                            background: '#0969da',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '0.8rem',
-                            fontWeight: 600,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Retry Summary
-                        </button>
+
+                      {/* Architecture & Diagram card */}
+                      <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                          <GitBranch size={18} color="#0969da" />
+                          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: theme.text, margin: 0 }}>System Flow & Architecture</h3>
+                        </div>
+                        {aiSummaryPending ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <Skeleton width="100%" height="16px" darkMode={darkMode} />
+                            <Skeleton width="100%" height="220px" borderRadius="6px" darkMode={darkMode} />
+                          </div>
+                        ) : (
+                          <>
+                            {aiSummary?.architectureSummary && (
+                              <p style={{ fontSize: '0.88rem', color: theme.text, lineHeight: 1.5, margin: '0 0 20px 0' }}>
+                                {aiSummary.architectureSummary}
+                              </p>
+                            )}
+
+                            {architecture && <ArchitectureDiagram diagramData={architecture} />}
+                          </>
+                        )}
                       </div>
-                    ) : (
-                      <>
-                        <p style={{ fontSize: '0.9rem', color: theme.text, lineHeight: 1.5, margin: 0 }}>
-                          {aiSummary?.overview || 'No AI summary generated. Sync the repository or configure the Gemini key to view details.'}
+
+                      {/* Tech stack card */}
+                      <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 800, color: theme.text, margin: '0 0 12px 0' }}>Technology stack & Dependencies</h3>
+                        <p style={{ fontSize: '0.88rem', color: theme.textMuted, lineHeight: 1.4, margin: '0 0 16px 0' }}>
+                          {aiSummary?.keyTechnologies || 'The following tech components were detected in build descriptors:'}
                         </p>
 
-                        {aiSummary?.mainPurpose && (
-                          <div style={{ marginTop: '20px' }}>
-                            <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: theme.textMuted, margin: '0 0 6px 0' }}>BEST USE CASES & MAIN PURPOSE</h4>
-                            <p style={{ fontSize: '0.88rem', color: theme.text, lineHeight: 1.5, margin: 0 }}>{aiSummary.mainPurpose}</p>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Strengths & Weaknesses row */}
-                  {resumeAnalysisPending ? (
-                    <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div className="spin-icon" style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #eaeef2', borderTopColor: '#0969da' }} />
-                      <span style={{ fontSize: '0.88rem', color: theme.textMuted }}>Analyzing repository strengths and areas for improvement...</span>
-                    </div>
-                  ) : resumeAnalysisError ? (
-                    <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ fontSize: '0.88rem', color: darkMode ? '#ff7b72' : '#cf222e' }}>{resumeAnalysisError}</div>
-                      <button
-                        onClick={() => {
-                          const controller = new AbortController();
-                          setResumeAnalysisPending(true);
-                          setResumeAnalysisError(null);
-                          triggerResumeAnalysis(controller.signal);
-                        }}
-                        style={{
-                          alignSelf: 'flex-start',
-                          background: '#0969da',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Retry Evaluation
-                      </button>
-                    </div>
-                  ) : (
-                    resumeAnalysis && (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div style={{ background: darkMode ? 'rgba(46,160,67,0.1)' : '#dafbe1', border: `1px solid ${darkMode ? 'rgba(46,160,67,0.3)' : 'rgba(26,127,55,0.2)'}`, borderRadius: '8px', padding: '20px' }}>
-                          <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: darkMode ? '#3fb950' : '#1a7f37', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>✓ Key Strengths</span>
-                          </h4>
-                          <p style={{ fontSize: '0.85rem', color: darkMode ? '#a5d6a7' : '#1a7f37', lineHeight: 1.4, margin: 0 }}>{resumeAnalysis.strengths}</p>
-                        </div>
-                        
-                        <div style={{ background: darkMode ? 'rgba(248,81,73,0.1)' : '#ffebe9', border: `1px solid ${darkMode ? 'rgba(248,81,73,0.3)' : 'rgba(207,34,46,0.2)'}`, borderRadius: '8px', padding: '20px' }}>
-                          <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: darkMode ? '#f85149' : '#cf222e', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>⚠ Areas for Improvement</span>
-                          </h4>
-                          <p style={{ fontSize: '0.85rem', color: darkMode ? '#ff79c6' : '#a40e26', lineHeight: 1.4, margin: 0 }}>{resumeAnalysis.weaknesses}</p>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {Array.isArray(techStack) && techStack.length > 0 ? techStack.map((tech, i) => (
+                            <span key={i} style={{
+                              background: theme.sidebarBg,
+                              border: `1px solid ${theme.border}`,
+                              borderRadius: '6px',
+                              padding: '6px 12px',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              color: theme.text
+                            }}>
+                              {tech.name || tech}
+                            </span>
+                          )) : (
+                            <span style={{ fontSize: '0.85rem', color: theme.textMuted }}>No secondary dependencies analyzed.</span>
+                          )}
                         </div>
                       </div>
-                    )
-                  )}
 
-                  {/* Architecture & Stack details */}
-                  {aiSummary?.architectureSummary && (
-                    <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: theme.text, margin: '0 0 12px 0' }}>System Flow & Architecture</h3>
-                      <p style={{ fontSize: '0.88rem', color: theme.text, lineHeight: 1.5, margin: '0 0 20px 0' }}>
-                        {aiSummary.architectureSummary}
-                      </p>
-
-                      {architecture && <ArchitectureDiagram diagramData={architecture} />}
                     </div>
-                  )}
 
-                  {/* Tech stack lists */}
-                  <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 800, color: theme.text, margin: '0 0 12px 0' }}>Technology stack & Dependencies</h3>
-                    <p style={{ fontSize: '0.88rem', color: theme.textMuted, lineHeight: 1.4, margin: '0 0 16px 0' }}>
-                      {aiSummary?.keyTechnologies || 'The following tech components were detected in build descriptors:'}
-                    </p>
+                    {/* RIGHT COLUMN: Portfolio & Resume Value */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                      
+                      {/* Industry relevance */}
+                      <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                          <TrendingUp size={18} color="#bf5700" />
+                          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: theme.text, margin: 0 }}>Industry & Job Relevance</h3>
+                        </div>
+                        {resumeAnalysisPending ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <Skeleton width="100%" height="16px" darkMode={darkMode} />
+                            <Skeleton width="92%" height="16px" darkMode={darkMode} />
+                            <Skeleton width="40%" height="16px" darkMode={darkMode} />
+                          </div>
+                        ) : resumeAnalysisError ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ fontSize: '0.88rem', color: darkMode ? '#ff7b72' : '#cf222e' }}>{resumeAnalysisError}</div>
+                            <button
+                              onClick={() => {
+                                const controller = new AbortController();
+                                setResumeAnalysisPending(true);
+                                setResumeAnalysisError(null);
+                                triggerResumeAnalysis(controller.signal);
+                              }}
+                              style={{
+                                alignSelf: 'flex-start',
+                                background: '#0969da',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Retry Evaluation
+                            </button>
+                          </div>
+                        ) : (
+                          <p style={{ fontSize: '0.88rem', color: theme.text, lineHeight: 1.5, margin: 0 }}>
+                            {resumeAnalysis?.industryRelevance || 'No industry relevance analysis available yet. Force a re-sync or check the Gemini API configuration.'}
+                          </p>
+                        )}
+                      </div>
 
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {Array.isArray(techStack) && techStack.length > 0 ? techStack.map((tech, i) => (
-                        <span key={i} style={{
-                          background: theme.sidebarBg,
-                          border: `1px solid ${theme.border}`,
-                          borderRadius: '6px',
-                          padding: '6px 12px',
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          color: theme.text
-                        }}>
-                          {tech.name || tech}
-                        </span>
-                      )) : (
-                        <span style={{ fontSize: '0.85rem', color: theme.textMuted }}>No secondary dependencies analyzed.</span>
+                      {/* Strengths & Weaknesses row */}
+                      {resumeAnalysisPending ? (
+                        <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <Skeleton width="140px" height="14px" darkMode={darkMode} />
+                            <Skeleton width="100%" height="16px" darkMode={darkMode} />
+                            <Skeleton width="90%" height="16px" darkMode={darkMode} />
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <Skeleton width="140px" height="14px" darkMode={darkMode} />
+                            <Skeleton width="100%" height="16px" darkMode={darkMode} />
+                            <Skeleton width="90%" height="16px" darkMode={darkMode} />
+                          </div>
+                        </div>
+                      ) : resumeAnalysisError ? (
+                        null
+                      ) : (
+                        resumeAnalysis && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ background: darkMode ? 'rgba(46,160,67,0.1)' : '#dafbe1', border: `1px solid ${darkMode ? 'rgba(46,160,67,0.3)' : 'rgba(26,127,55,0.2)'}`, borderRadius: '8px', padding: '20px' }}>
+                              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: darkMode ? '#3fb950' : '#1a7f37', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>✓ Key Strengths</span>
+                              </h4>
+                              <p style={{ fontSize: '0.85rem', color: darkMode ? '#a5d6a7' : '#1a7f37', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-line' }}>{resumeAnalysis.strengths}</p>
+                            </div>
+                            
+                            <div style={{ background: darkMode ? 'rgba(248,81,73,0.1)' : '#ffebe9', border: `1px solid ${darkMode ? 'rgba(248,81,73,0.3)' : 'rgba(207,34,46,0.2)'}`, borderRadius: '8px', padding: '20px' }}>
+                              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: darkMode ? '#f85149' : '#cf222e', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>⚠ Areas for Improvement</span>
+                              </h4>
+                              <p style={{ fontSize: '0.85rem', color: darkMode ? '#ff9b9b' : '#a40e26', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-line' }}>{resumeAnalysis.weaknesses}</p>
+                            </div>
+                          </div>
+                        )
                       )}
+
+                      {/* Suggested Improvements Roadmap */}
+                      <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                          <CheckSquare size={18} color="#bc8cff" />
+                          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: theme.text, margin: 0 }}>Portfolio Improvement Roadmap</h3>
+                        </div>
+                        {resumeAnalysisPending ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <Skeleton width="100%" height="16px" darkMode={darkMode} style={{ marginBottom: '4px' }} />
+                            <Skeleton width="95%" height="16px" darkMode={darkMode} style={{ marginBottom: '4px' }} />
+                            <Skeleton width="88%" height="16px" darkMode={darkMode} />
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {resumeAnalysis?.suggestedImprovements && resumeAnalysis.suggestedImprovements.length > 0 ? (
+                              resumeAnalysis.suggestedImprovements.map((imp, idx) => (
+                                <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                  <input type="checkbox" readOnly checked={false} style={{ marginTop: '3px', cursor: 'default' }} />
+                                  <span style={{ fontSize: '0.88rem', color: theme.text, lineHeight: 1.4 }}>{imp}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div style={{ fontSize: '0.88rem', color: theme.textMuted }}>No specific improvements suggested.</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
                     </div>
+
                   </div>
 
                 </div>

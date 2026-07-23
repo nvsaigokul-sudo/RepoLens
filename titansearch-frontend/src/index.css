@@ -292,3 +292,19 @@ body {
   padding: 0;
   font-size: 90%;
 }
+
+/* Skeleton Loading Shimmer Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+}
