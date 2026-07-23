@@ -80,6 +80,7 @@ export default function SearchPage() {
 
   // Onboarding verification checks
   const [hasKeys, setHasKeys] = useState(true);
+  const [isBackendConfigured, setIsBackendConfigured] = useState(false);
   const [gitTokenInput, setGitTokenInput] = useState(gitToken);
   const [geminiKeyInput, setGeminiKeyInput] = useState(geminiKey);
 
@@ -95,19 +96,23 @@ export default function SearchPage() {
         if (res.ok && json.data) {
           const { githubTokenConfigured, geminiKeyConfigured } = json.data;
           if (githubTokenConfigured && geminiKeyConfigured) {
+            setIsBackendConfigured(true);
             setHasKeys(true);
           } else {
+            setIsBackendConfigured(false);
             const git = localStorage.getItem('repolens-git-token');
             const gemini = localStorage.getItem('repolens-gemini-key');
             setHasKeys(!!(git && gemini));
           }
         } else {
+          setIsBackendConfigured(false);
           const git = localStorage.getItem('repolens-git-token');
           const gemini = localStorage.getItem('repolens-gemini-key');
           setHasKeys(!!(git && gemini));
         }
       } catch (e) {
         console.error("Failed to check backend configuration status:", e);
+        setIsBackendConfigured(false);
         const git = localStorage.getItem('repolens-git-token');
         const gemini = localStorage.getItem('repolens-gemini-key');
         setHasKeys(!!(git && gemini));
@@ -171,7 +176,7 @@ export default function SearchPage() {
     localStorage.setItem('repolens-cache-ttl', cacheTtl.toString());
     setGitTokenInput(gitToken);
     setGeminiKeyInput(geminiKey);
-    setHasKeys(!!(gitToken && geminiKey));
+    setHasKeys(isBackendConfigured || !!(gitToken && geminiKey));
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2500);
   };
@@ -775,13 +780,20 @@ export default function SearchPage() {
                   {/* Credentials key tokens */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.75rem', fontWeight: 700, color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Key size={12} />
-                        <span>GEMINI_API_KEY</span>
-                      </label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Key size={12} />
+                          <span>GEMINI_API_KEY</span>
+                        </label>
+                        {(isBackendConfigured || !!geminiKey) ? (
+                          <span style={{ color: '#1a7f37', fontSize: '0.7rem', fontWeight: 600 }}>● Active</span>
+                        ) : (
+                          <span style={{ color: '#cf222e', fontSize: '0.7rem', fontWeight: 600 }}>● Missing Credentials</span>
+                        )}
+                      </div>
                       <input
                         type="password"
-                        placeholder="Enter Google AI Studio developer API key..."
+                        placeholder={isBackendConfigured ? "Configured via System Environment Properties" : "Enter Google AI Studio developer API key..."}
                         value={geminiKey}
                         onChange={(e) => setGeminiKey(e.target.value)}
                         style={{
@@ -798,13 +810,20 @@ export default function SearchPage() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.75rem', fontWeight: 700, color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Key size={12} />
-                        <span>GITHUB_TOKEN</span>
-                      </label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Key size={12} />
+                          <span>GITHUB_TOKEN</span>
+                        </label>
+                        {(isBackendConfigured || !!gitToken) ? (
+                          <span style={{ color: '#1a7f37', fontSize: '0.7rem', fontWeight: 600 }}>● Active</span>
+                        ) : (
+                          <span style={{ color: '#cf222e', fontSize: '0.7rem', fontWeight: 600 }}>● Missing Credentials</span>
+                        )}
+                      </div>
                       <input
                         type="password"
-                        placeholder="Enter GitHub personal access token..."
+                        placeholder={isBackendConfigured ? "Configured via System Environment Properties" : "Enter GitHub personal access token..."}
                         value={gitToken}
                         onChange={(e) => setGitToken(e.target.value)}
                         style={{
