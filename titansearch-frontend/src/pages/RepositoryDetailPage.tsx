@@ -1271,7 +1271,7 @@ export default function RepositoryDetailPage() {
                         {resumeAnalysisPending ? (
                           <Skeleton width="60px" height="32px" darkMode={darkMode} style={{ margin: '8px 0' }} />
                         ) : (
-                          (resumeAnalysis?.score !== undefined ? resumeAnalysis.score.toFixed(1) : '8.0') + '/10.0'
+                          (resumeAnalysis?.score !== undefined ? Number(resumeAnalysis.score).toFixed(1) : '8.0') + '/10.0'
                         )}
                       </div>
                       <div style={{ fontSize: '0.72rem', color: theme.textMuted }}>Resume strength rating</div>
@@ -1389,7 +1389,7 @@ export default function RepositoryDetailPage() {
                               fontWeight: 600,
                               color: theme.text
                             }}>
-                              {tech.name || tech}
+                              {typeof tech === 'string' ? tech : (tech?.technology || tech?.name || '')}
                             </span>
                           )) : (
                             <span style={{ fontSize: '0.85rem', color: theme.textMuted }}>No secondary dependencies analyzed.</span>
