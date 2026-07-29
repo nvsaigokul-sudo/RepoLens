@@ -165,10 +165,100 @@ public class GeminiClient {
               "overall_health_reasoning": "Summary of activity, license, open issues, and maturity indicators.",
               "overall_health_contributors": ["+15 Weekly commits", "+10 Has LICENSE file", "-5 High ratio of unhandled issues"],
 
-              "confidence_score": 90
+              "confidence_score": 90,
+
+              "architecture_grade": "A+",
+              "architecture_tooltip": "Why this grade was assigned (1-2 sentences).",
+              "maintainability_grade": "A",
+              "maintainability_tooltip": "Why...",
+              "documentation_grade": "B+",
+              "documentation_tooltip": "Why...",
+              "testing_grade": "C",
+              "testing_tooltip": "Why...",
+              "security_grade": "A",
+              "security_tooltip": "Why...",
+              "scalability_grade": "A-",
+              "scalability_tooltip": "Why...",
+              "code_organization_grade": "A+",
+              "code_organization_tooltip": "Why...",
+              "dependency_health_grade": "B",
+              "dependency_health_tooltip": "Why...",
+              "overall_grade": "A",
+
+              "health_timeline": [
+                {"label": "Jan", "score": 82},
+                {"label": "Feb", "score": 76},
+                {"label": "Mar", "score": 85},
+                {"label": "Apr", "score": 70},
+                {"label": "May", "score": 89}
+              ],
+              "health_trend": "Improving",
+
+              "dna_architecture": 85,
+              "dna_documentation": 70,
+              "dna_testing": 40,
+              "dna_security": 90,
+              "dna_backend": 95,
+              "dna_frontend": 10,
+              "dna_infrastructure": 20,
+              "dna_devops": 30,
+              "dna_database": 60,
+              "dna_performance": 80,
+              "dna_ai": 5,
+
+              "personality_title": "The Architect",
+              "personality_traits": ["Enterprise ready", "Highly modular", "Excellent structure"],
+              "personality_explanation": "Why this personality matches (2-3 sentences).",
+
+              "risk_documentation": "Green",
+              "risk_documentation_rec": "Actionable recommendation.",
+              "risk_security": "Green",
+              "risk_security_rec": "Actionable recommendation.",
+              "risk_testing": "Red",
+              "risk_testing_rec": "Configure JUnit/Test frameworks to guarantee regression safety.",
+              "risk_dependency_updates": "Yellow",
+              "risk_dependency_updates_rec": "Upgrade outdated libraries.",
+              "risk_technical_debt": "Yellow",
+              "risk_technical_debt_rec": "Refactor complex helper methods.",
+              "risk_performance": "Green",
+              "risk_performance_rec": "Efficient data structure usage.",
+              "risk_scalability": "Green",
+              "risk_scalability_rec": "Layered architecture allows easy scaling.",
+              "risk_api_stability": "Green",
+              "risk_api_stability_rec": "Clean, versioned public API endpoints.",
+
+              "code_review_feed": [
+                {"status": "Check", "message": "Excellent package organization.", "path": "src/main/java"},
+                {"status": "Warning", "message": "Large service class detected.", "path": "src/main/java/com/titansearch/service/ai/ResumeValueService.java"},
+                {"status": "Warning", "message": "Missing integration tests.", "path": "src/test"}
+              ],
+
+              "journey": [
+                {"year": "2024", "title": "Repository Created", "description": "Initial codebase established with foundational configurations."},
+                {"year": "2025", "title": "Architecture Setup", "description": "Layered backend logic and controller mapping configured."}
+              ],
+
+              "recruiter_backend": 5,
+              "recruiter_architecture": 5,
+              "recruiter_testing": 3,
+              "recruiter_production": 4,
+              "recruiter_documentation": 4,
+              "recruiter_readiness": 92,
+              "recruiter_recommend": true,
+              "recruiter_reason": "Excellent architecture with production-quality practices, but testing coverage could be improved.",
+
+              "achievement_badges": ["Enterprise Ready", "Well Modularized"],
+
+              "roadmap_high": ["Increase unit test coverage", "Add integration tests"],
+              "roadmap_medium": ["Improve README configuration details"],
+              "roadmap_low": ["Reduce package coupling in services"]
             }
             The resume_score and portfolio_score must be numeric values between 0.0 and 10.0.
-            The maintainability_score, code_quality_score, overall_health_score, and confidence_score must be integers between 0 and 100.
+            The maintainability_score, code_quality_score, overall_health_score, confidence_score, and all dna_* variables must be integers between 0 and 100.
+            All risk_* variables must be exactly "Green", "Yellow", or "Red".
+            The code_review_feed and journey lists must contain small objects matching the schema exactly.
+            In code_review_feed.path, make sure to suggest real paths present in the directory structure.
+            In code_review_feed.status, make sure to use exactly "Check", "Warning", or "Error".
             Do not include any markdown block fences like ```json, return only the raw JSON.
             """.formatted(repoName, description, String.join(", ", techStack), directoryStructure, healthScore, readmePreview);
 
@@ -369,7 +459,69 @@ public class GeminiClient {
             healthScore,
             "Health calculated from commits and issues.",
             List.of("+10 Active commits"),
-            80
+            80,
+
+            // Report Card
+            "B", "Standard file configuration mapping detected.",
+            "B", "Clean, classic folder paths and packaging patterns.",
+            "B+", "Readme documentation exists and contains setup files.",
+            "C", "Few test suites detected in primary descriptors.",
+            "A", "No clear credentials leaks or security bypasses.",
+            "B", "Standard architectural components support standard growth.",
+            "B+", "Modestly layered layout separation.",
+            "B", "Libraries declared and integrated.",
+            "B",
+
+            // Timeline
+            List.of(
+                Map.of("label", "Jan", "score", 65),
+                Map.of("label", "Feb", "score", 70),
+                Map.of("label", "Mar", "score", 68),
+                Map.of("label", "Apr", "score", 72),
+                Map.of("label", "May", "score", 76)
+            ),
+            "Improving",
+
+            // DNA
+            70, 75, 40, 80, 85, 20, 30, 40, 50, 70, 10,
+
+            // Personality
+            "The Builder",
+            List.of("Rapid development", "Standard setup", "Modest documentation"),
+            "This repository has a clean, standard structure suitable for rapid additions.",
+
+            // Risk Radar
+            "Green", "Readme is present.",
+            "Green", "No credentials leaks.",
+            "Yellow", "JUnit test configurations could be expanded.",
+            "Green", "Standard dependencies mapped.",
+            "Yellow", "Refactor helper methods.",
+            "Green", "Standard performance.",
+            "Green", "Modular architecture supports growth.",
+            "Green", "Endpoints are structured.",
+
+            // Code Review Feed
+            List.of(
+                Map.of("status", "Check", "message", "Standard file structure layout", "path", "src/"),
+                Map.of("status", "Warning", "message", "Add comprehensive test configurations", "path", "src/test")
+            ),
+
+            // Journey
+            List.of(
+                Map.of("year", "2024", "title", "Initial Commit", "description", "Project setup completed"),
+                Map.of("year", "2025", "title", "Production Build", "description", "Code base finalized")
+            ),
+
+            // Recruiter Perspective
+            3, 3, 2, 3, 3, 72, true, "Solid baseline project, but lacks enterprise-level test coverage and automated integration workflows.",
+
+            // Badges
+            List.of("Clean Setup", "Standard layout"),
+
+            // Roadmap
+            List.of("Write integration test suites"),
+            List.of("Expand README setup details"),
+            List.of("Review static library declarations")
         );
     }
 }

@@ -1,6 +1,6 @@
-# RepoLens: AI-Powered GitHub Repository Discovery & Analysis
+# RepoLens v2: Enterprise AI-Powered Repository Auditing & Code Intelligence Platform
 
-RepoLens is a premium, high-performance web and desktop platform designed to discover, scan, and audit GitHub repositories. Leveraging advanced AI summaries, health metrics, technology signature lookups, interactive code trees, and direct workspace downloads, RepoLens simplifies code discovery.
+RepoLens is a premium, high-performance web and desktop platform designed to discover, scan, audit, and analyze GitHub repositories. It integrates advanced AI model pipelines with repository telemetry to deliver code review feeds, interactive architecture maps, security audits, and developer metrics.
 
 This repository is structured as a unified monorepo containing both the React frontend and Spring Boot backend, designed to compile and deploy under a single unified web service.
 
@@ -16,12 +16,13 @@ This repository is structured as a unified monorepo containing both the React fr
 5. [Unified Docker & Deployment Pipeline](#-unified-docker--deployment-pipeline)
 6. [Desktop Launcher (`RepoLens.exe`)](#-desktop-launcher-repolensexe)
 7. [Local Development Setup](#-local-development-setup)
+8. [Detailed Technical Architecture](#-detailed-technical-architecture)
 
 ---
 
 ## 🏗 System Architecture
 
-RepoLens adopts a single-origin, unified architecture where the React SPA frontend is built and served directly by the Spring Boot embedded Tomcat container. This eliminates CORS concerns, optimizes static asset delivery, and enables single-service hosting (e.g., on Render).
+RepoLens adopts a single-origin, unified architecture where the React SPA frontend is built and served directly by the Spring Boot embedded Tomcat container. This eliminates CORS concerns, optimizes static asset delivery, and enables single-service hosting.
 
 ```mermaid
 graph TD
@@ -34,7 +35,7 @@ graph TD
   ReactSPA -->|Download Link| DesktopEXE[RepoLens.exe Static Asset]
 ```
 
-### 1. Unified Single-Service Hosting
+### 1. Unified Single-Service Serving
 The React frontend static files are compiled into `dist` and copied into `src/main/resources/static/` of the backend resources during build time. The entire application runs as a single JAR package.
 
 ### 2. SPA Route Redirection
@@ -47,18 +48,37 @@ In production, frontend API fetches automatically omit base URLs and query relat
 
 ## 🌟 Key Features & Capabilities
 
-### 1. Centered Search & Discovery Base
-- **Spring Layout Transitions**: On load, the search controls (Query text field, Language filters, Min Stars slider) are centered to emphasize focus. Submitting a search triggers a spring layout animation (powered by `framer-motion`) that shifts the inputs to the header, fading in results below.
-- **Enriched Cards**: Hover-transforming result cards show license details, topics badges, visibility parameters, and instant AI summaries.
+### 1. AI Repository Report Card
+Replaces generic scores with a detailed evaluation matrix across 8 core dimensions:
+* **Architecture** (e.g. modularity, layer separation)
+* **Maintainability** (code cleaniness, complexity)
+* **Documentation** (inline comments, README maturity)
+* **Testing** (unit/integration suite health)
+* **Security** (secrets leak detection, vulnerability audit)
+* **Scalability** (concurrency, load management)
+* **Code Organization** (directory tree structures)
+* **Dependency Health** (outdated libraries, bloat check)
 
-### 2. Public Authentication-Free Access & Branding
-- **Zero Login Friction**: The application requires no login, signups, accounts, or profile setups. It operates entirely as a public auditing tool.
-- **Custom Brand Identity**: Replaced generic symbols with the **RepoLens Logo** (a vector magnifying lens focusing on code editor brackets `< >`) and the tagline: *"AI-Powered GitHub Repository Discovery & Analysis"*.
+### 2. Repository DNA Visualization
+Presents strength metrics represented as sleek, CSS-visualized horizontal bar charts for quick identification of backend, frontend, devops, database, performance, and AI-native capabilities.
 
-### 3. Repository details view (70/30 Split)
-- **Left Content Pane (70%)**: Features repository parameters, README markdown viewer, computed overall health metrics, code maturity metrics, and the files tree.
-- **Right Sidebar (30%)**: Houses owner profiles, company locations, quick copy HTTP/SSH clone panels, bookmarks registry, and the **Direct ZIP Downloader** (which streams zipballs directly with progress-bar loading).
-- **Gemini Chatbot Sidepanel**: Allows real-time messaging about the codebase with a temperature/creativity adjustment slider.
+### 3. AI Risk Radar & Threat Audit
+Renders a grid mapping critical threats (Documentation gaps, Security concerns, Testing lacks, Dependency status, and Technical Debt levels) using intuitive color-coded indicators (Green, Yellow, Red) and clear recommendations.
+
+### 4. Interactive Architecture Map & Review Feed
+Visualizes backend layers, frontend layers, database layers, and testing components. Clicking any architectural layer filters the code review comments to show findings corresponding to that module.
+
+### 5. Repository Evolution Journey Timeline
+An interactive milestone tracker charting year-over-year repository evolution, structural upgrades, and main release points.
+
+### 6. Recruiter Perspective Panel
+Features backend skill checks, interview readiness indicators, star ratings across backend/documentation/readiness, and explicit recruiter recommendation tags to assess repository quality.
+
+### 7. Side-by-Side Comparison Mode
+Allows users to type another repository (e.g., `mybatis/spring`) and render comparative tables side-by-side (health scores, maintainability, technology stack, and recommender stars).
+
+### 8. Smart AI Chat Suggestions
+Context-aware suggestion pills positioned directly above the typing input box to quickly request architecture breakdowns, code reviews, and dependency checks.
 
 ---
 
@@ -67,9 +87,9 @@ In production, frontend API fetches automatically omit base URLs and query relat
 RepoLens incorporates advanced client-side caching and fetch cancellation architectures to feel instant:
 
 ### 1. Stale-While-Revalidate (SWR) Caching
-- **Search Cache**: Page queries, slider parameters, and results lists are cached in memory. Navigating back from detail views restores states instantly.
-- **Detail Metadata Cache**: Caches tech stacks, health score matrices, AI summaries, and structural diagrams per repository. Detail pages load in under 50ms.
-- **File Explorer Cache**: Persists previously opened directory folders and file code drawer text previews in memory. Expanding, collapsing, and selecting files is instant.
+* **Search Cache**: Page queries, slider parameters, and results lists are cached in memory. Navigating back from detail views restores states instantly.
+* **Detail Metadata Cache**: Caches tech stacks, health score matrices, AI summaries, and structural diagrams per repository. Detail pages load in under 50ms.
+* **File Explorer Cache**: Persists previously opened directory folders and file code drawer text previews in memory. Expanding, collapsing, and selecting files is instant.
 
 ### 2. HTTP ETag Conditional Requests
 GitHub API profile lookups check locally stored ETags (`If-None-Match`). Unmodified assets return `304 Not Modified`, preserving rate limit quotas.
@@ -82,19 +102,19 @@ Pending backend search queries and repository details fetches are aborted instan
 ## 🛠 Technology Stack
 
 ### Frontend
-- **React 18** & **TypeScript**
-- **Vite** (Build toolchain)
-- **Framer Motion** (Spring layout animations)
-- **Lucide React** (Branding iconography)
+* **React 18** & **TypeScript**
+* **Vite** (Build toolchain)
+* **Framer Motion** (Spring layout transitions)
+* **Lucide React** (Branding iconography)
 
 ### Backend
-- **Spring Boot 3.x** & **Java 21**
-- **Maven** (Dependency manager)
-- **Google Gemini Client** (Integrated with the `gemini-2.5-flash` model)
+* **Spring Boot 3.x** & **Java 21**
+* **Maven** (Dependency manager)
+* **Google Gemini Client** (Integrated with the `gemini-2.5-flash` model)
 
 ### Desktop Launcher
-- **C# (.NET Framework)** (Compiles native executable wrapper)
-- **PowerShell** (Automated zip extraction and packaging scripts)
+* **C# (.NET Framework)** (Compiles native executable wrapper)
+* **PowerShell** (Automated zip extraction and packaging scripts)
 
 ---
 
@@ -138,14 +158,14 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 RepoLens includes a native C# launcher and self-contained installer (`RepoLens.exe`) that deploys a local environment.
 
 ### 📥 Download Link
-- **From Web App Browser (Recommended)**: Download directly from the sidebar of the running website at `/RepoLens.exe`.
-- **From GitHub Releases**: 👉 **[Download RepoLens for Windows v0.2.0](https://github.com/nvsaigokul-sudo/RepoLens/releases/latest/download/RepoLens.exe)**
+* **From Web App Browser (Recommended)**: Download directly from the sidebar of the running website at `/RepoLens.exe`.
+* **From GitHub Releases**: 👉 **[Download RepoLens for Windows v0.2.0](https://github.com/nvsaigokul-sudo/RepoLens/releases/latest/download/RepoLens.exe)**
 
 ### 📋 Release Specifications
-- **Current Version**: `v0.2.0`
-- **File Size**: `32.48 MB`
-- **Architecture**: `Windows 10 / 11 (64-bit)`
-- **Dependencies**: Docker Desktop (required to run local databases and service containers)
+* **Current Version**: `v0.2.0`
+* **File Size**: `32.48 MB`
+* **Architecture**: `Windows 10 / 11 (64-bit)`
+* **Dependencies**: Docker Desktop (required to run local databases and service containers)
 
 ### 🚀 Installation Instructions
 1. **Prerequisites**: Ensure **Docker Desktop** is installed and running on your system.
@@ -168,9 +188,9 @@ To cleanly remove RepoLens from your machine, simply:
 ## 🚀 Local Development Setup
 
 ### Prerequisites
-- Java JDK 21
-- Node.js 20+
-- Maven 3.8+
+* Java JDK 21
+* Node.js 20+
+* Maven 3.8+
 
 ### Step 1: Run the Backend
 1. Navigate to the backend directory:
@@ -213,20 +233,11 @@ This generates the packaged client wrapper at `RepoLens.exe`.
 
 ## 🔍 Detailed Architecture & Technical Walkthrough
 
-This section provides a deep technical walkthrough of the core architectures, security designs, and optimization layers in RepoLens for developers looking to understand or extend the platform.
-
-### 1. The Monorepo Build & Serve Mechanics
-RepoLens packages a React TypeScript SPA and a Spring Boot Maven project into a single deployable artifact.
-- **Frontend Compilation**: During building (`npm run build`), Vite bundles all assets, stylesheets, and router maps into a static distribution directory (`dist/`).
-- **Backend Inclusion**: The compiled frontend assets are copied directly to `src/main/resources/static/` of the backend.
-- **Tomcat Resource Serving**: When the Spring Boot application boots, Tomcat serves the index.html and static files from the resources classpath.
-- **SPA Fallback Routing**: To prevent router breakage on page refreshes (e.g., navigating directly to `/repository/owner/name`), [WebViewController.java](file:///c:/Users/nvsai/Desktop/anti%20gravity/RepoLens/titansearch-backend/src/main/java/com/titansearch/controller/WebViewController.java) routes all non-API web request patterns back to `/index.html`, allowing React Router to handle page resolution on the client side.
-
-### 2. Thread-Local Context Propagation in Asynchronous Tasks
+### 1. Asynchronous Workers & Thread-Local Propagation
 When a user requests repository analysis or health summaries, the backend schedules async operations using `@Async` on background threads (handled by Spring's task executors) to avoid blocking the main request thread:
-- **The Challenge**: Asynchronous threads do not share the servlet request thread's thread-local storage. Thus, `RequestContextHolder.getRequestAttributes()` returns null in background threads. This prevents standard REST controllers from propagating client-provided headers (`X-GitHub-Token` and `X-Gemini-Key`).
-- **The Solution**: RepoLens implements a [SecurityContext](file:///c:/Users/nvsai/Desktop/anti%20gravity/RepoLens/titansearch-backend/src/main/java/com/titansearch/config/SecurityContext.java) class using `ThreadLocal` variables. The controllers extract the token and keys from the request headers and pass them as method parameters to the asynchronous services. The background threads then populate their own `SecurityContext` at startup.
-- **Integration**: RestClient interceptors and Gemini API clients pull authorization details from `SecurityContext` when `RequestContextHolder` returns null, allowing secure, authenticated API requests in background tasks.
+* **The Challenge**: Asynchronous threads do not share the servlet request thread's thread-local storage. Thus, `RequestContextHolder.getRequestAttributes()` returns null in background threads. This prevents standard REST controllers from propagating client-provided headers (`X-GitHub-Token` and `X-Gemini-Key`).
+* **The Solution**: RepoLens implements a [SecurityContext](file:///c:/Users/nvsai/Desktop/anti%20gravity/RepoLens/titansearch-backend/src/main/java/com/titansearch/config/SecurityContext.java) class using `ThreadLocal` variables. The controllers extract the token and keys from the request headers and pass them as method parameters to the asynchronous services. The background threads then populate their own `SecurityContext` at startup.
+* **Integration**: RestClient interceptors and Gemini API clients pull authorization details from `SecurityContext` when `RequestContextHolder` returns null, allowing secure, authenticated API requests in background tasks.
 
 ```mermaid
 sequenceDiagram
@@ -245,24 +256,17 @@ sequenceDiagram
     AsyncService->>SecurityContext: clear()
 ```
 
-### 3. ZIP Archive Downloader Proxy & CORS Bypass
+### 2. ZIP Archive Downloader Proxy & CORS Bypass
 GitHub's file archive endpoint redirects browser queries to `codeload.github.com`, which lacks appropriate CORS headers for web-based downloads:
-- **Direct Downloads**: When fetching directly in the browser, the cross-origin preflight/redirect fails.
-- **Proxy Implementation**: RepoLens implements a proxy endpoint `/api/v1/repositories/{owner}/{repo}/zip`.
-- **Server-to-Server Stream**: The React frontend requests this endpoint passing user credentials in the headers. The backend `RestClient` fetches the zip archive directly from GitHub, handles the redirect, streams the binary data as a byte array, and writes it directly to the response output stream with `application/zip` MIME type headers. This circumvents browser CORS checks entirely.
+* **Direct Downloads**: When fetching directly in the browser, the cross-origin preflight/redirect fails.
+* **Proxy Implementation**: RepoLens implements a proxy endpoint `/api/v1/repositories/{owner}/{repo}/zip`.
+* **Server-to-Server Stream**: The React frontend requests this endpoint passing user credentials in the headers. The backend `RestClient` fetches the zip archive directly from GitHub, handles the redirect, streams the binary data as a byte array, and writes it directly to the response output stream with `application/zip` MIME type headers. This circumvents browser CORS checks entirely.
 
-### 4. Custom Markdown Compiler for AI Chat
+### 3. Custom Markdown Compiler for AI Chat
 To ensure fast, secure, and style-consistent markdown rendering without loading heavy external dependencies:
-- **Markdown Parser**: The chat interface uses a custom regex-based parser, `renderChatMarkdown`, that operates on client message logs.
-- **Parsed Components**:
+* **Markdown Parser**: The chat interface uses a custom regex-based parser, `renderChatMarkdown`, that operates on client message logs.
+* **Parsed Components**:
   - **Fenced Code Blocks**: Translates ` ```lang code ``` ` to clean `<pre>` blocks with inline-overflow scrolling.
   - **Tables**: Parses table delimiters (`|`) and structures them into properly formatted HTML tables.
   - **Bold/Italics**: Translates `**text**` and `*text*` to strong/em elements.
-  - **Lists**: Correctly parses bullet (`*`, `-`, `+`) and numbered (`1.`) lists.
   - **Links/Paragraphs**: Converts raw URLs and markdown bracket links to secure `_blank` target anchors.
-
-### 5. Stale-While-Revalidate (SWR) & ETag Caching
-To maintain high responsiveness and reduce GitHub API rate-limiting fatigue:
-- **Client Cache**: The frontend cache (`detailsCache`) stores analysis outputs, repository details, and file trees in memory, loading cached views instantly on click before updating them in the background.
-- **HTTP ETags**: GitHub API responses for profile lookups check cached ETag hashes. If unchanged, the server returns `304 Not Modified`, allowing the client to retrieve cached details without consuming API quotas.
-

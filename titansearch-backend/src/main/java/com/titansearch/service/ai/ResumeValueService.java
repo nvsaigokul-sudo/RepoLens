@@ -156,6 +156,78 @@ public class ResumeValueService {
 
             Integer confidenceScoreVal = dto.confidenceScore() != null ? dto.confidenceScore() : 80;
 
+            String architectureGradeVal = dto.architectureGrade() != null ? dto.architectureGrade() : "B";
+            String architectureTooltipVal = dto.architectureTooltip() != null ? dto.architectureTooltip() : "";
+            String maintainabilityGradeVal = dto.maintainabilityGrade() != null ? dto.maintainabilityGrade() : "B";
+            String maintainabilityTooltipVal = dto.maintainabilityTooltip() != null ? dto.maintainabilityTooltip() : "";
+            String documentationGradeVal = dto.documentationGrade() != null ? dto.documentationGrade() : "B";
+            String documentationTooltipVal = dto.documentationTooltip() != null ? dto.documentationTooltip() : "";
+            String testingGradeVal = dto.testingGrade() != null ? dto.testingGrade() : "B";
+            String testingTooltipVal = dto.testingTooltip() != null ? dto.testingTooltip() : "";
+            String securityGradeVal = dto.securityGrade() != null ? dto.securityGrade() : "B";
+            String securityTooltipVal = dto.securityTooltip() != null ? dto.securityTooltip() : "";
+            String scalabilityGradeVal = dto.scalabilityGrade() != null ? dto.scalabilityGrade() : "B";
+            String scalabilityTooltipVal = dto.scalabilityTooltip() != null ? dto.scalabilityTooltip() : "";
+            String codeOrganizationGradeVal = dto.codeOrganizationGrade() != null ? dto.codeOrganizationGrade() : "B";
+            String codeOrganizationTooltipVal = dto.codeOrganizationTooltip() != null ? dto.codeOrganizationTooltip() : "";
+            String dependencyHealthGradeVal = dto.dependencyHealthGrade() != null ? dto.dependencyHealthGrade() : "B";
+            String dependencyHealthTooltipVal = dto.dependencyHealthTooltip() != null ? dto.dependencyHealthTooltip() : "";
+            String overallGradeVal = dto.overallGrade() != null ? dto.overallGrade() : "B";
+
+            List<Map<String, Object>> healthTimelineVal = dto.healthTimeline() != null ? dto.healthTimeline() : List.of();
+            String healthTrendVal = dto.healthTrend() != null ? dto.healthTrend() : "Stable";
+
+            Integer dnaArchitectureVal = dto.dnaArchitecture() != null ? dto.dnaArchitecture() : 50;
+            Integer dnaDocumentationVal = dto.dnaDocumentation() != null ? dto.dnaDocumentation() : 50;
+            Integer dnaTestingVal = dto.dnaTesting() != null ? dto.dnaTesting() : 50;
+            Integer dnaSecurityVal = dto.dnaSecurity() != null ? dto.dnaSecurity() : 50;
+            Integer dnaBackendVal = dto.dnaBackend() != null ? dto.dnaBackend() : 50;
+            Integer dnaFrontendVal = dto.dnaFrontend() != null ? dto.dnaFrontend() : 50;
+            Integer dnaInfrastructureVal = dto.dnaInfrastructure() != null ? dto.dnaInfrastructure() : 50;
+            Integer dnaDevopsVal = dto.dnaDevops() != null ? dto.dnaDevops() : 50;
+            Integer dnaDatabaseVal = dto.dnaDatabase() != null ? dto.dnaDatabase() : 50;
+            Integer dnaPerformanceVal = dto.dnaPerformance() != null ? dto.dnaPerformance() : 50;
+            Integer dnaAiVal = dto.dnaAi() != null ? dto.dnaAi() : 50;
+
+            String personalityTitleVal = dto.personalityTitle() != null ? dto.personalityTitle() : "The Builder";
+            List<String> personalityTraitsVal = dto.personalityTraits() != null ? dto.personalityTraits() : List.of();
+            String personalityExplanationVal = dto.personalityExplanation() != null ? dto.personalityExplanation() : "";
+
+            String riskDocumentationVal = dto.riskDocumentation() != null ? dto.riskDocumentation() : "Green";
+            String riskDocumentationRecVal = dto.riskDocumentationRec() != null ? dto.riskDocumentationRec() : "";
+            String riskSecurityVal = dto.riskSecurity() != null ? dto.riskSecurity() : "Green";
+            String riskSecurityRecVal = dto.riskSecurityRec() != null ? dto.riskSecurityRec() : "";
+            String riskTestingVal = dto.riskTesting() != null ? dto.riskTesting() : "Green";
+            String riskTestingRecVal = dto.riskTestingRec() != null ? dto.riskTestingRec() : "";
+            String riskDependencyUpdatesVal = dto.riskDependencyUpdates() != null ? dto.riskDependencyUpdates() : "Green";
+            String riskDependencyUpdatesRecVal = dto.riskDependencyUpdatesRec() != null ? dto.riskDependencyUpdatesRec() : "";
+            String riskTechnicalDebtVal = dto.riskTechnicalDebt() != null ? dto.riskTechnicalDebt() : "Green";
+            String riskTechnicalDebtRecVal = dto.riskTechnicalDebtRec() != null ? dto.riskTechnicalDebtRec() : "";
+            String riskPerformanceVal = dto.riskPerformance() != null ? dto.riskPerformance() : "Green";
+            String riskPerformanceRecVal = dto.riskPerformanceRec() != null ? dto.riskPerformanceRec() : "";
+            String riskScalabilityVal = dto.riskScalability() != null ? dto.riskScalability() : "Green";
+            String riskScalabilityRecVal = dto.riskScalabilityRec() != null ? dto.riskScalabilityRec() : "";
+            String riskApiStabilityVal = dto.riskApiStability() != null ? dto.riskApiStability() : "Green";
+            String riskApiStabilityRecVal = dto.riskApiStabilityRec() != null ? dto.riskApiStabilityRec() : "";
+
+            List<Map<String, Object>> codeReviewFeedVal = dto.codeReviewFeed() != null ? dto.codeReviewFeed() : List.of();
+            List<Map<String, Object>> journeyVal = dto.journey() != null ? dto.journey() : List.of();
+
+            Integer recruiterBackendVal = dto.recruiterBackend() != null ? dto.recruiterBackend() : 3;
+            Integer recruiterArchitectureVal = dto.recruiterArchitecture() != null ? dto.recruiterArchitecture() : 3;
+            Integer recruiterTestingVal = dto.recruiterTesting() != null ? dto.recruiterTesting() : 3;
+            Integer recruiterProductionVal = dto.recruiterProduction() != null ? dto.recruiterProduction() : 3;
+            Integer recruiterDocumentationVal = dto.recruiterDocumentation() != null ? dto.recruiterDocumentation() : 3;
+            Integer recruiterReadinessVal = dto.recruiterReadiness() != null ? dto.recruiterReadiness() : 70;
+            Boolean recruiterRecommendVal = dto.recruiterRecommend() != null ? dto.recruiterRecommend() : true;
+            String recruiterReasonVal = dto.recruiterReason() != null ? dto.recruiterReason() : "";
+
+            List<String> achievementBadgesVal = dto.achievementBadges() != null ? dto.achievementBadges() : List.of();
+
+            List<String> roadmapHighVal = dto.roadmapHigh() != null ? dto.roadmapHigh() : List.of();
+            List<String> roadmapMediumVal = dto.roadmapMedium() != null ? dto.roadmapMedium() : List.of();
+            List<String> roadmapLowVal = dto.roadmapLow() != null ? dto.roadmapLow() : List.of();
+
             ResumeAnalysisPojo analysis = new ResumeAnalysisPojo(
                     score,
                     strengths,
@@ -175,7 +247,70 @@ public class ResumeValueService {
                     overallHealthScoreVal,
                     overallHealthReasoningVal,
                     overallHealthContributorsVal,
-                    confidenceScoreVal
+                    confidenceScoreVal,
+                    architectureGradeVal,
+                    architectureTooltipVal,
+                    maintainabilityGradeVal,
+                    maintainabilityTooltipVal,
+                    documentationGradeVal,
+                    documentationTooltipVal,
+                    testingGradeVal,
+                    testingTooltipVal,
+                    securityGradeVal,
+                    securityTooltipVal,
+                    scalabilityGradeVal,
+                    scalabilityTooltipVal,
+                    codeOrganizationGradeVal,
+                    codeOrganizationTooltipVal,
+                    dependencyHealthGradeVal,
+                    dependencyHealthTooltipVal,
+                    overallGradeVal,
+                    healthTimelineVal,
+                    healthTrendVal,
+                    dnaArchitectureVal,
+                    dnaDocumentationVal,
+                    dnaTestingVal,
+                    dnaSecurityVal,
+                    dnaBackendVal,
+                    dnaFrontendVal,
+                    dnaInfrastructureVal,
+                    dnaDevopsVal,
+                    dnaDatabaseVal,
+                    dnaPerformanceVal,
+                    dnaAiVal,
+                    personalityTitleVal,
+                    personalityTraitsVal,
+                    personalityExplanationVal,
+                    riskDocumentationVal,
+                    riskDocumentationRecVal,
+                    riskSecurityVal,
+                    riskSecurityRecVal,
+                    riskTestingVal,
+                    riskTestingRecVal,
+                    riskDependencyUpdatesVal,
+                    riskDependencyUpdatesRecVal,
+                    riskTechnicalDebtVal,
+                    riskTechnicalDebtRecVal,
+                    riskPerformanceVal,
+                    riskPerformanceRecVal,
+                    riskScalabilityVal,
+                    riskScalabilityRecVal,
+                    riskApiStabilityVal,
+                    riskApiStabilityRecVal,
+                    codeReviewFeedVal,
+                    journeyVal,
+                    recruiterBackendVal,
+                    recruiterArchitectureVal,
+                    recruiterTestingVal,
+                    recruiterProductionVal,
+                    recruiterDocumentationVal,
+                    recruiterReadinessVal,
+                    recruiterRecommendVal,
+                    recruiterReasonVal,
+                    achievementBadgesVal,
+                    roadmapHighVal,
+                    roadmapMediumVal,
+                    roadmapLowVal
             );
 
             cacheService.put("resume-analysis:" + nameKey, analysis, CACHE_TTL_SECONDS);
