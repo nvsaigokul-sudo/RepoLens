@@ -112,34 +112,65 @@ public class GeminiClient {
 
     @CircuitBreaker(name = "geminiClient", fallbackMethod = "generateResumeAnalysisFallback")
     @Retry(name = "geminiClient")
-    public GeminiResumeAnalysisDto generateResumeAnalysis(String repoName, String description, List<String> techStack, String readmePreview, int healthScore) {
+    public GeminiResumeAnalysisDto generateResumeAnalysis(String repoName, String description, List<String> techStack, String readmePreview, int healthScore, String directoryStructure) {
         String effectiveKey = getEffectiveApiKey();
         if (effectiveKey == null || effectiveKey.isBlank()) {
             log.warn("Gemini API key is missing. Using fallback mock resume analysis.");
-            return generateResumeAnalysisFallback(repoName, description, techStack, readmePreview, healthScore, new IllegalStateException("API key missing"));
+            return generateResumeAnalysisFallback(repoName, description, techStack, readmePreview, healthScore, directoryStructure, new IllegalStateException("API key missing"));
         }
 
         String prompt = """
-            You are a technical recruiter and hiring manager. Evaluate this GitHub repository's quality for inclusion on a software engineer's resume or portfolio.
-            
-            Repository Name: %s
-            Description: %s
-            Technologies Used: %s
-            Computed Health Score: %d/100
-            README Preview:
+            You are a senior systems architect, technical recruiter, and code auditor. Evaluate this GitHub repository's quality.
+            Your evaluation must be realistic, objective, and deeply critical.
+            DO NOT use hardcoded offsets, fixed constants, or static baseline score estimates (e.g., do not default everything to 6/10).
+            Vastly differentiate quality:
+            - Outstanding, industry-grade, or world-class open-source projects (e.g., Spring Framework, MyBatis, Kafka, React) must score between 9.0 and 10.0 for Portfolio Score and 90-100 for other metrics.
+            - Strong, complete, production-ready full-stack projects should score between 8.0 and 9.0 for Portfolio Score and 80-90 for other metrics.
+            - Well-constructed student capstone/course projects should score between 7.0 and 8.0 for Portfolio Score and 70-80 for other metrics.
+            - Average/simple CRUD applications should score between 5.0 and 6.0 for Portfolio Score and 50-65 for other metrics.
+            - Basic, beginner, or copy-pasted tutorial apps should score between 2.0 and 4.0 for Portfolio Score.
+            - Minimal setups, hello worlds, or empty repositories should score between 0.0 and 2.0 for Portfolio Score.
+
+            Base your calculations on this evidence:
+            - Repository Name: %s
+            - Description: %s
+            - Technologies Used: %s
+            - Directory Structure:
             %s
-            
+            - Computed GitHub Stats Health Score: %d/100
+            - README Preview:
+            %s
+
             Return ONLY a valid JSON object matching the following structure:
             {
               "resume_score": 7.5,
-              "strengths": "Brief summary of key technical highlights, clean code patterns, or good project organization.",
-              "weaknesses": "Issues like missing tests, basic implementation, lack of documentation, etc.",
-              "industry_relevance": "How relevant these skills/tech are to contemporary professional software engineering jobs.",
-              "suggested_improvements": "Actionable items the developer can implement to make this project shine on a resume."
+              "strengths": "Summary of technical strengths.",
+              "weaknesses": "Summary of weaknesses.",
+              "industry_relevance": "Industry relevance summary.",
+              "suggested_improvements": "Actionable improvements.",
+
+              "portfolio_score": 7.5,
+              "portfolio_reasoning": "Critique of originality, complexity, completion, production-readiness, and candidate presentation.",
+              "portfolio_contributors": ["+15 Original design", "+10 Complete tests", "-5 No deployment script"],
+
+              "maintainability_score": 85,
+              "maintainability_reasoning": "Evaluation of package layout, separation of concerns, DRY, modularity, and folder structure.",
+              "maintainability_contributors": ["+15 Layered packages", "-10 High coupling between views and controllers"],
+
+              "code_quality_score": 80,
+              "code_quality_reasoning": "Evaluation of complexity, documentation, exception handling patterns, and code hygiene.",
+              "code_quality_contributors": ["+10 Thorough comments", "-15 No error logs or checkstyle configs"],
+
+              "overall_health_score": 82,
+              "overall_health_reasoning": "Summary of activity, license, open issues, and maturity indicators.",
+              "overall_health_contributors": ["+15 Weekly commits", "+10 Has LICENSE file", "-5 High ratio of unhandled issues"],
+
+              "confidence_score": 90
             }
-            The resume_score must be a numeric value between 0.0 and 10.0.
+            The resume_score and portfolio_score must be numeric values between 0.0 and 10.0.
+            The maintainability_score, code_quality_score, overall_health_score, and confidence_score must be integers between 0 and 100.
             Do not include any markdown block fences like ```json, return only the raw JSON.
-            """.formatted(repoName, description, String.join(", ", techStack), healthScore, readmePreview);
+            """.formatted(repoName, description, String.join(", ", techStack), directoryStructure, healthScore, readmePreview);
 
         String responseBody = callGeminiApi(prompt, effectiveKey, "application/json");
         try {
@@ -317,14 +348,28 @@ public class GeminiClient {
         );
     }
 
-    public GeminiResumeAnalysisDto generateResumeAnalysisFallback(String repoName, String description, List<String> techStack, String readmePreview, int healthScore, Throwable t) {
+    public GeminiResumeAnalysisDto generateResumeAnalysisFallback(String repoName, String description, List<String> techStack, String readmePreview, int healthScore, String directoryStructure, Throwable t) {
         log.error("Gemini generateResumeAnalysis failed (using fallback): {}", t.getMessage());
+        BigDecimal defaultScore = BigDecimal.valueOf(6.5);
         return new GeminiResumeAnalysisDto(
-            BigDecimal.valueOf(6.5),
+            defaultScore,
             "Shows basic repository lifecycle and use of " + String.join(", ", techStack),
             "Missing advanced production architectural components or CI/CD pipelines.",
             "Relevant for general developer roles using modern stacks.",
-            "Add detailed unit tests, build scripts, and a clear setup guide in the README."
+            "Add detailed unit tests, build scripts, and a clear setup guide in the README.",
+            defaultScore,
+            "Portfolio score is moderate due to standard project setup.",
+            List.of("+15 Clean setup", "-5 Missing tests"),
+            70,
+            "Structure conforms to standard layouts.",
+            List.of("+10 Standard directories"),
+            68,
+            "Code quality is decent with standard patterns.",
+            List.of("+10 Readable code"),
+            healthScore,
+            "Health calculated from commits and issues.",
+            List.of("+10 Active commits"),
+            80
         );
     }
 }

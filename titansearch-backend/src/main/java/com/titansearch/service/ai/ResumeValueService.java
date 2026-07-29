@@ -8,13 +8,16 @@ import com.titansearch.dto.response.TechStackDto;
 import com.titansearch.service.analysis.HealthScoreService;
 import com.titansearch.service.analysis.TechStackDetectorService;
 import com.titansearch.service.cache.CacheService;
+import com.titansearch.service.github.GitHubClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +31,7 @@ public class ResumeValueService {
     private final HealthScoreService healthScoreService;
     private final CacheService cacheService;
     private final GeminiClient geminiClient;
+    private final GitHubClient gitHubClient;
 
     public enum JobState { PENDING, FAILED }
     private final java.util.Map<String, JobState> jobStates = new ConcurrentHashMap<>();
@@ -97,12 +101,36 @@ public class ResumeValueService {
                     repository.repoCreatedAt()
             );
 
+            List<Map<String, Object>> contents = gitHubClient.getDirectoryContents(owner, repoName, "");
+            StringBuilder structureBuilder = new StringBuilder();
+            if (contents != null) {
+                for (Map<String, Object> item : contents) {
+                    if (item == null) continue;
+                    String name = (String) item.get("name");
+                    String type = (String) item.get("type");
+                    structureBuilder.append("- ").append(name).append(" (").append(type).append(")\n");
+                    
+                    if ("dir".equals(type) && ("src".equalsIgnoreCase(name) || "app".equalsIgnoreCase(name) || "lib".equalsIgnoreCase(name) || "main".equalsIgnoreCase(name))) {
+                        List<Map<String, Object>> subContents = gitHubClient.getDirectoryContents(owner, repoName, name);
+                        if (subContents != null) {
+                            for (Map<String, Object> subItem : subContents) {
+                                if (subItem == null) continue;
+                                structureBuilder.append("  - ").append(name).append("/").append(subItem.get("name"))
+                                                 .append(" (").append(subItem.get("type")).append(")\n");
+                            }
+                        }
+                    }
+                }
+            }
+            String directoryStructure = structureBuilder.toString();
+
             GeminiResumeAnalysisDto dto = geminiClient.generateResumeAnalysis(
                     fullName,
                     repository.description() != null ? repository.description() : "",
                     techStack,
                     repository.readmePreview() != null ? repository.readmePreview() : "",
-                    healthScore.overallScore()
+                    healthScore.overallScore(),
+                    directoryStructure
             );
 
             int score = dto.resumeScore() != null ? dto.resumeScore().intValue() : 0;
@@ -110,13 +138,44 @@ public class ResumeValueService {
             List<String> weaknesses = dto.weaknesses() != null ? List.of(dto.weaknesses().split("\n")) : List.of();
             List<String> improvements = dto.suggestedImprovements() != null ? List.of(dto.suggestedImprovements().split("\n")) : List.of();
 
+            BigDecimal portfolioScoreVal = dto.portfolioScore() != null ? dto.portfolioScore() : BigDecimal.valueOf(score);
+            String portfolioReasoningVal = dto.portfolioReasoning() != null ? dto.portfolioReasoning() : "";
+            List<String> portfolioContributorsVal = dto.portfolioContributors() != null ? dto.portfolioContributors() : List.of();
+
+            Integer maintainabilityScoreVal = dto.maintainabilityScore() != null ? dto.maintainabilityScore() : 70;
+            String maintainabilityReasoningVal = dto.maintainabilityReasoning() != null ? dto.maintainabilityReasoning() : "";
+            List<String> maintainabilityContributorsVal = dto.maintainabilityContributors() != null ? dto.maintainabilityContributors() : List.of();
+
+            Integer codeQualityScoreVal = dto.codeQualityScore() != null ? dto.codeQualityScore() : 70;
+            String codeQualityReasoningVal = dto.codeQualityReasoning() != null ? dto.codeQualityReasoning() : "";
+            List<String> codeQualityContributorsVal = dto.codeQualityContributors() != null ? dto.codeQualityContributors() : List.of();
+
+            Integer overallHealthScoreVal = dto.overallHealthScore() != null ? dto.overallHealthScore() : healthScore.overallScore();
+            String overallHealthReasoningVal = dto.overallHealthReasoning() != null ? dto.overallHealthReasoning() : "";
+            List<String> overallHealthContributorsVal = dto.overallHealthContributors() != null ? dto.overallHealthContributors() : List.of();
+
+            Integer confidenceScoreVal = dto.confidenceScore() != null ? dto.confidenceScore() : 80;
+
             ResumeAnalysisPojo analysis = new ResumeAnalysisPojo(
                     score,
                     strengths,
                     weaknesses,
                     dto.industryRelevance(),
                     improvements,
-                    Instant.now()
+                    Instant.now(),
+                    portfolioScoreVal,
+                    portfolioReasoningVal,
+                    portfolioContributorsVal,
+                    maintainabilityScoreVal,
+                    maintainabilityReasoningVal,
+                    maintainabilityContributorsVal,
+                    codeQualityScoreVal,
+                    codeQualityReasoningVal,
+                    codeQualityContributorsVal,
+                    overallHealthScoreVal,
+                    overallHealthReasoningVal,
+                    overallHealthContributorsVal,
+                    confidenceScoreVal
             );
 
             cacheService.put("resume-analysis:" + nameKey, analysis, CACHE_TTL_SECONDS);

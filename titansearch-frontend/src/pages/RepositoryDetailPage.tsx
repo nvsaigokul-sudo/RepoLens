@@ -48,6 +48,24 @@ interface ResumeAnalysisData {
   weaknesses: string;
   industryRelevance?: string;
   suggestedImprovements?: string[];
+
+  portfolioScore?: number;
+  portfolioReasoning?: string;
+  portfolioContributors?: string[];
+
+  maintainabilityScore?: number;
+  maintainabilityReasoning?: string;
+  maintainabilityContributors?: string[];
+
+  codeQualityScore?: number;
+  codeQualityReasoning?: string;
+  codeQualityContributors?: string[];
+
+  overallHealthScore?: number;
+  overallHealthReasoning?: string;
+  overallHealthContributors?: string[];
+
+  confidenceScore?: number;
 }
 
 interface AiSummaryData {
@@ -647,7 +665,20 @@ export default function RepositoryDetailPage() {
           strengths: Array.isArray(json.data.strengths) ? json.data.strengths.join('\n') : (json.data.strengths || ''),
           weaknesses: Array.isArray(json.data.weaknesses) ? json.data.weaknesses.join('\n') : (json.data.weaknesses || ''),
           industryRelevance: json.data.industryRelevance || '',
-          suggestedImprovements: Array.isArray(json.data.suggestedImprovements) ? json.data.suggestedImprovements : []
+          suggestedImprovements: Array.isArray(json.data.suggestedImprovements) ? json.data.suggestedImprovements : [],
+          portfolioScore: json.data.portfolioScore || 0,
+          portfolioReasoning: json.data.portfolioReasoning || '',
+          portfolioContributors: Array.isArray(json.data.portfolioContributors) ? json.data.portfolioContributors : [],
+          maintainabilityScore: json.data.maintainabilityScore || 0,
+          maintainabilityReasoning: json.data.maintainabilityReasoning || '',
+          maintainabilityContributors: Array.isArray(json.data.maintainabilityContributors) ? json.data.maintainabilityContributors : [],
+          codeQualityScore: json.data.codeQualityScore || 0,
+          codeQualityReasoning: json.data.codeQualityReasoning || '',
+          codeQualityContributors: Array.isArray(json.data.codeQualityContributors) ? json.data.codeQualityContributors : [],
+          overallHealthScore: json.data.overallHealthScore || 0,
+          overallHealthReasoning: json.data.overallHealthReasoning || '',
+          overallHealthContributors: Array.isArray(json.data.overallHealthContributors) ? json.data.overallHealthContributors : [],
+          confidenceScore: json.data.confidenceScore || 0
         };
         setResumeAnalysis(mappedData);
         if (!detailsCache[repoFullName]) detailsCache[repoFullName] = {};
@@ -1239,44 +1270,195 @@ export default function RepositoryDetailPage() {
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   
-                  {/* Scores dashboard */}
-                  <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 768 ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: '16px' }}>
-                    <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 600 }}>OVERALL HEALTH</div>
-                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#1a7f37', margin: '8px 0' }}>
-                        {healthScore?.overallScore || '85'}/100
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: theme.textMuted }}>Computed indexes</div>
-                    </div>
+                   {/* Scores dashboard header */}
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '8px' }}>
+                     <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: theme.text, margin: 0 }}>AI Intelligence Scoring Dashboard</h3>
+                     {resumeAnalysis?.confidenceScore !== undefined && (
+                       <span style={{
+                         fontSize: '0.75rem',
+                         fontWeight: 600,
+                         color: '#0969da',
+                         background: darkMode ? 'rgba(9, 105, 218, 0.08)' : 'rgba(9, 105, 218, 0.05)',
+                         border: `1px solid ${darkMode ? 'rgba(9, 105, 218, 0.2)' : 'rgba(9, 105, 218, 0.15)'}`,
+                         padding: '4px 10px',
+                         borderRadius: '12px',
+                         display: 'flex',
+                         alignItems: 'center',
+                         gap: '6px'
+                       }}>
+                         <span>AI Assessment Confidence:</span>
+                         <strong>{resumeAnalysis.confidenceScore}%</strong>
+                       </span>
+                     )}
+                   </div>
 
-                    <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 600 }}>MAINTAINABILITY</div>
-                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0969da', margin: '8px 0' }}>
-                        {healthScore?.breakdown?.maturityScore || '88'}/100
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: theme.textMuted }}>Structure rating</div>
-                    </div>
+                   {/* Scores dashboard */}
+                   <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 1024 ? 'repeat(4, 1fr)' : windowWidth >= 768 ? 'repeat(2, 1fr)' : '1fr', gap: '16px' }}>
+                     
+                     {/* Card 1: OVERALL HEALTH */}
+                     <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', transition: 'all 0.2s ease' }}>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                         <span style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 700, letterSpacing: '0.05em' }}>OVERALL HEALTH</span>
+                         <span style={{ fontSize: '0.72rem', color: theme.textMuted, fontWeight: 500 }}>AI Rating</span>
+                       </div>
+                       <div style={{ fontSize: '2rem', fontWeight: 800, color: '#1a7f37', margin: '4px 0 0 0' }}>
+                         {resumeAnalysisPending ? (
+                           <Skeleton width="60px" height="32px" darkMode={darkMode} />
+                         ) : (
+                           `${resumeAnalysis?.overallHealthScore !== undefined ? resumeAnalysis.overallHealthScore : (healthScore?.overallScore || '85')}/100`
+                         )}
+                       </div>
+                       {!resumeAnalysisPending && resumeAnalysis?.overallHealthReasoning && (
+                         <p style={{ fontSize: '0.78rem', color: theme.textMuted, lineHeight: 1.45, margin: 0 }}>
+                           {resumeAnalysis.overallHealthReasoning}
+                         </p>
+                       )}
+                       {!resumeAnalysisPending && resumeAnalysis?.overallHealthContributors && resumeAnalysis.overallHealthContributors.length > 0 && (
+                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: 'auto', paddingTop: '8px', borderTop: `1px solid ${theme.border}` }}>
+                           {resumeAnalysis.overallHealthContributors.map((c, idx) => {
+                             const isPositive = c.trim().startsWith('+');
+                             return (
+                               <span key={idx} style={{
+                                 fontSize: '0.7rem',
+                                 fontWeight: 600,
+                                 padding: '2px 8px',
+                                 borderRadius: '10px',
+                                 background: darkMode ? (isPositive ? 'rgba(46,160,67,0.1)' : 'rgba(248,81,73,0.1)') : (isPositive ? '#dafbe1' : '#ffebe9'),
+                                 color: darkMode ? (isPositive ? '#3fb950' : '#f85149') : (isPositive ? '#1a7f37' : '#cf222e'),
+                                 border: `1px solid ${darkMode ? (isPositive ? 'rgba(46,160,67,0.2)' : 'rgba(248,81,73,0.2)') : (isPositive ? 'rgba(26,127,55,0.15)' : 'rgba(207,34,46,0.15)')}`,
+                                 display: 'inline-block'
+                               }}>
+                                 {c}
+                               </span>
+                             );
+                           })}
+                         </div>
+                       )}
+                     </div>
 
-                    <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 600 }}>CODE QUALITY</div>
-                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#85144b', margin: '8px 0' }}>
-                        {healthScore?.breakdown?.documentationScore || '92'}/100
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: theme.textMuted }}>Complexity / Doc score</div>
-                    </div>
+                     {/* Card 2: MAINTAINABILITY */}
+                     <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', transition: 'all 0.2s ease' }}>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                         <span style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 700, letterSpacing: '0.05em' }}>MAINTAINABILITY</span>
+                         <span style={{ fontSize: '0.72rem', color: theme.textMuted, fontWeight: 500 }}>AI Rating</span>
+                       </div>
+                       <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0969da', margin: '4px 0 0 0' }}>
+                         {resumeAnalysisPending ? (
+                           <Skeleton width="60px" height="32px" darkMode={darkMode} />
+                         ) : (
+                           `${resumeAnalysis?.maintainabilityScore !== undefined ? resumeAnalysis.maintainabilityScore : (healthScore?.breakdown?.maturityScore || '88')}/100`
+                         )}
+                       </div>
+                       {!resumeAnalysisPending && resumeAnalysis?.maintainabilityReasoning && (
+                         <p style={{ fontSize: '0.78rem', color: theme.textMuted, lineHeight: 1.45, margin: 0 }}>
+                           {resumeAnalysis.maintainabilityReasoning}
+                         </p>
+                       )}
+                       {!resumeAnalysisPending && resumeAnalysis?.maintainabilityContributors && resumeAnalysis.maintainabilityContributors.length > 0 && (
+                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: 'auto', paddingTop: '8px', borderTop: `1px solid ${theme.border}` }}>
+                           {resumeAnalysis.maintainabilityContributors.map((c, idx) => {
+                             const isPositive = c.trim().startsWith('+');
+                             return (
+                               <span key={idx} style={{
+                                 fontSize: '0.7rem',
+                                 fontWeight: 600,
+                                 padding: '2px 8px',
+                                 borderRadius: '10px',
+                                 background: darkMode ? (isPositive ? 'rgba(46,160,67,0.1)' : 'rgba(248,81,73,0.1)') : (isPositive ? '#dafbe1' : '#ffebe9'),
+                                 color: darkMode ? (isPositive ? '#3fb950' : '#f85149') : (isPositive ? '#1a7f37' : '#cf222e'),
+                                 border: `1px solid ${darkMode ? (isPositive ? 'rgba(46,160,67,0.2)' : 'rgba(248,81,73,0.2)') : (isPositive ? 'rgba(26,127,55,0.15)' : 'rgba(207,34,46,0.15)')}`,
+                                 display: 'inline-block'
+                               }}>
+                                 {c}
+                               </span>
+                             );
+                           })}
+                         </div>
+                       )}
+                     </div>
 
-                    <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 600 }}>PORTFOLIO SCORE</div>
-                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#bc8cff', margin: '8px 0' }}>
-                        {resumeAnalysisPending ? (
-                          <Skeleton width="60px" height="32px" darkMode={darkMode} style={{ margin: '8px 0' }} />
-                        ) : (
-                          (resumeAnalysis?.score !== undefined ? Number(resumeAnalysis.score).toFixed(1) : '8.0') + '/10.0'
-                        )}
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: theme.textMuted }}>Resume strength rating</div>
-                    </div>
-                  </div>
+                     {/* Card 3: CODE QUALITY */}
+                     <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', transition: 'all 0.2s ease' }}>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                         <span style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 700, letterSpacing: '0.05em' }}>CODE QUALITY</span>
+                         <span style={{ fontSize: '0.72rem', color: theme.textMuted, fontWeight: 500 }}>AI Rating</span>
+                       </div>
+                       <div style={{ fontSize: '2rem', fontWeight: 800, color: '#85144b', margin: '4px 0 0 0' }}>
+                         {resumeAnalysisPending ? (
+                           <Skeleton width="60px" height="32px" darkMode={darkMode} />
+                         ) : (
+                           `${resumeAnalysis?.codeQualityScore !== undefined ? resumeAnalysis.codeQualityScore : (healthScore?.breakdown?.documentationScore || '92')}/100`
+                         )}
+                       </div>
+                       {!resumeAnalysisPending && resumeAnalysis?.codeQualityReasoning && (
+                         <p style={{ fontSize: '0.78rem', color: theme.textMuted, lineHeight: 1.45, margin: 0 }}>
+                           {resumeAnalysis.codeQualityReasoning}
+                         </p>
+                       )}
+                       {!resumeAnalysisPending && resumeAnalysis?.codeQualityContributors && resumeAnalysis.codeQualityContributors.length > 0 && (
+                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: 'auto', paddingTop: '8px', borderTop: `1px solid ${theme.border}` }}>
+                           {resumeAnalysis.codeQualityContributors.map((c, idx) => {
+                             const isPositive = c.trim().startsWith('+');
+                             return (
+                               <span key={idx} style={{
+                                 fontSize: '0.7rem',
+                                 fontWeight: 600,
+                                 padding: '2px 8px',
+                                 borderRadius: '10px',
+                                 background: darkMode ? (isPositive ? 'rgba(46,160,67,0.1)' : 'rgba(248,81,73,0.1)') : (isPositive ? '#dafbe1' : '#ffebe9'),
+                                 color: darkMode ? (isPositive ? '#3fb950' : '#f85149') : (isPositive ? '#1a7f37' : '#cf222e'),
+                                 border: `1px solid ${darkMode ? (isPositive ? 'rgba(46,160,67,0.2)' : 'rgba(248,81,73,0.2)') : (isPositive ? 'rgba(26,127,55,0.15)' : 'rgba(207,34,46,0.15)')}`,
+                                 display: 'inline-block'
+                               }}>
+                                 {c}
+                               </span>
+                             );
+                           })}
+                         </div>
+                       )}
+                     </div>
+
+                     {/* Card 4: PORTFOLIO SCORE */}
+                     <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', transition: 'all 0.2s ease' }}>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                         <span style={{ fontSize: '0.75rem', color: theme.textMuted, fontWeight: 700, letterSpacing: '0.05em' }}>PORTFOLIO SCORE</span>
+                         <span style={{ fontSize: '0.72rem', color: theme.textMuted, fontWeight: 500 }}>AI Recruiter Rating</span>
+                       </div>
+                       <div style={{ fontSize: '2rem', fontWeight: 800, color: '#bc8cff', margin: '4px 0 0 0' }}>
+                         {resumeAnalysisPending ? (
+                           <Skeleton width="60px" height="32px" darkMode={darkMode} />
+                         ) : (
+                           `${resumeAnalysis?.portfolioScore !== undefined ? Number(resumeAnalysis.portfolioScore).toFixed(1) : (resumeAnalysis?.score !== undefined ? Number(resumeAnalysis.score).toFixed(1) : '8.0')}/10.0`
+                         )}
+                       </div>
+                       {!resumeAnalysisPending && resumeAnalysis?.portfolioReasoning && (
+                         <p style={{ fontSize: '0.78rem', color: theme.textMuted, lineHeight: 1.45, margin: 0 }}>
+                           {resumeAnalysis.portfolioReasoning}
+                         </p>
+                       )}
+                       {!resumeAnalysisPending && resumeAnalysis?.portfolioContributors && resumeAnalysis.portfolioContributors.length > 0 && (
+                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: 'auto', paddingTop: '8px', borderTop: `1px solid ${theme.border}` }}>
+                           {resumeAnalysis.portfolioContributors.map((c, idx) => {
+                             const isPositive = c.trim().startsWith('+');
+                             return (
+                               <span key={idx} style={{
+                                 fontSize: '0.7rem',
+                                 fontWeight: 600,
+                                 padding: '2px 8px',
+                                 borderRadius: '10px',
+                                 background: darkMode ? (isPositive ? 'rgba(46,160,67,0.1)' : 'rgba(248,81,73,0.1)') : (isPositive ? '#dafbe1' : '#ffebe9'),
+                                 color: darkMode ? (isPositive ? '#3fb950' : '#f85149') : (isPositive ? '#1a7f37' : '#cf222e'),
+                                 border: `1px solid ${darkMode ? (isPositive ? 'rgba(46,160,67,0.2)' : 'rgba(248,81,73,0.2)') : (isPositive ? 'rgba(26,127,55,0.15)' : 'rgba(207,34,46,0.15)')}`,
+                                 display: 'inline-block'
+                               }}>
+                                 {c}
+                               </span>
+                             );
+                           })}
+                         </div>
+                       )}
+                     </div>
+                   </div>
 
                   {/* Content columns */}
                   <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 1024 ? '60% 40%' : '1fr', gap: '24px', alignItems: 'start' }}>

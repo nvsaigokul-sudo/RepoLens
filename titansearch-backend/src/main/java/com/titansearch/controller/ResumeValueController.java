@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.List;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/v1/repositories")
@@ -45,14 +47,27 @@ public class ResumeValueController {
 
         if (analysisOpt.isPresent()) {
             ResumeAnalysisPojo analysis = analysisOpt.get();
-            Map<String, Object> data = Map.of(
-                    "id", System.currentTimeMillis(),
-                    "resumeScore", analysis.resumeScore(),
-                    "strengths", analysis.strengths(),
-                    "weaknesses", analysis.weaknesses(),
-                    "industryRelevance", analysis.industryRelevance(),
-                    "suggestedImprovements", analysis.suggestedImprovements(),
-                    "generatedAt", analysis.generatedAt()
+            Map<String, Object> data = Map.ofEntries(
+                    Map.entry("id", System.currentTimeMillis()),
+                    Map.entry("resumeScore", analysis.resumeScore()),
+                    Map.entry("strengths", analysis.strengths()),
+                    Map.entry("weaknesses", analysis.weaknesses()),
+                    Map.entry("industryRelevance", analysis.industryRelevance()),
+                    Map.entry("suggestedImprovements", analysis.suggestedImprovements()),
+                    Map.entry("generatedAt", analysis.generatedAt()),
+                    Map.entry("portfolioScore", analysis.portfolioScore() != null ? analysis.portfolioScore() : BigDecimal.ZERO),
+                    Map.entry("portfolioReasoning", analysis.portfolioReasoning() != null ? analysis.portfolioReasoning() : ""),
+                    Map.entry("portfolioContributors", analysis.portfolioContributors() != null ? analysis.portfolioContributors() : List.of()),
+                    Map.entry("maintainabilityScore", analysis.maintainabilityScore() != null ? analysis.maintainabilityScore() : 0),
+                    Map.entry("maintainabilityReasoning", analysis.maintainabilityReasoning() != null ? analysis.maintainabilityReasoning() : ""),
+                    Map.entry("maintainabilityContributors", analysis.maintainabilityContributors() != null ? analysis.maintainabilityContributors() : List.of()),
+                    Map.entry("codeQualityScore", analysis.codeQualityScore() != null ? analysis.codeQualityScore() : 0),
+                    Map.entry("codeQualityReasoning", analysis.codeQualityReasoning() != null ? analysis.codeQualityReasoning() : ""),
+                    Map.entry("codeQualityContributors", analysis.codeQualityContributors() != null ? analysis.codeQualityContributors() : List.of()),
+                    Map.entry("overallHealthScore", analysis.overallHealthScore() != null ? analysis.overallHealthScore() : 0),
+                    Map.entry("overallHealthReasoning", analysis.overallHealthReasoning() != null ? analysis.overallHealthReasoning() : ""),
+                    Map.entry("overallHealthContributors", analysis.overallHealthContributors() != null ? analysis.overallHealthContributors() : List.of()),
+                    Map.entry("confidenceScore", analysis.confidenceScore() != null ? analysis.confidenceScore() : 0)
             );
             return ResponseEntity.ok(ApiEnvelope.ok(data));
         }
