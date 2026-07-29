@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Component } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   RefreshCw, FileText, Bell, Star, GitFork, Eye, AlertCircle,
@@ -76,6 +76,37 @@ interface CacheEntry {
 }
 const detailsCache: { [repoName: string]: CacheEntry } = {};
 const etagCache: { [url: string]: { etag: string; data: any } } = {};
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  fallback: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = {
+    hasError: false
+  };
+
+  public static getDerivedStateFromError(_: Error): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Uncaught error inside AI Analysis Boundary:", error, errorInfo);
+  }
+
+  public render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
 
 const Skeleton = ({ width, height, borderRadius = '4px', darkMode, style = {} }: { width: string; height: string; borderRadius?: string; darkMode: boolean; style?: React.CSSProperties }) => {
   const start = darkMode ? '#21262d' : '#eaeef2';
@@ -1160,7 +1191,53 @@ export default function RepositoryDetailPage() {
 
               {/* Tab 2: AI Analysis Section */}
               {activeTab === 'analysis' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <ErrorBoundary
+                  fallback={
+                    <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '32px', textAlign: 'center' }}>
+                      <AlertCircle size={40} color="#cf222e" style={{ marginBottom: '16px', display: 'inline-block' }} />
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: theme.text, margin: '0 0 8px 0' }}>
+                        Something went wrong while loading the AI Intelligence Analysis
+                      </h3>
+                      <p style={{ fontSize: '0.88rem', color: theme.textMuted, margin: '0 0 24px 0', lineHeight: 1.4 }}>
+                        A rendering error occurred while building the dashboard. You can try refreshing the page or going back.
+                      </p>
+                      <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                        <button
+                          onClick={() => window.location.reload()}
+                          style={{
+                            background: '#0969da',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '6px',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Reload Page
+                        </button>
+                        <Link
+                          to="/"
+                          style={{
+                            background: theme.cardBg,
+                            border: `1px solid ${theme.border}`,
+                            color: theme.text,
+                            padding: '8px 16px',
+                            fontSize: '0.85rem',
+                            textDecoration: 'none',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          Back to Discovery
+                        </Link>
+                      </div>
+                    </div>
+                  }
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   
                   {/* Scores dashboard */}
                   <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 768 ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: '16px' }}>
@@ -1437,7 +1514,8 @@ export default function RepositoryDetailPage() {
 
                   </div>
 
-                </div>
+                  </div>
+                </ErrorBoundary>
               )}
 
               {/* Tab 3: File tree explorer */}

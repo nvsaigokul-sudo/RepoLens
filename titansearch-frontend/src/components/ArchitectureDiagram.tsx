@@ -17,15 +17,19 @@ interface ArchitectureDiagramProps {
 }
 
 export default function ArchitectureDiagram({ diagramData }: ArchitectureDiagramProps) {
-  if (!diagramData || !diagramData.nodes || diagramData.nodes.length === 0) {
+  const rawNodes = diagramData?.nodes || [];
+  const rawEdges = diagramData?.edges || [];
+
+  const nodes = Array.isArray(rawNodes) ? rawNodes.filter((n: any) => n && n.id && n.type) : [];
+  const edges = Array.isArray(rawEdges) ? rawEdges.filter((e: any) => e && e.from && e.to) : [];
+
+  if (nodes.length === 0) {
     return (
       <div className="git-card flex-center" style={{ minHeight: '200px', flexDirection: 'column', color: 'var(--text-muted)' }}>
         <span>No architecture data available for this repository.</span>
       </div>
     );
   }
-
-  const { nodes, edges } = diagramData;
 
   // Compute node coordinates based on type
   const width = 800;
