@@ -8,6 +8,7 @@ import com.titansearch.service.analysis.TechStackDetectorService;
 import com.titansearch.service.cache.CacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +26,9 @@ public class AISummaryService {
     private final TechStackDetectorService techStackDetectorService;
     private final CacheService cacheService;
     private final GeminiClient geminiClient;
+
+    @Value("${titansearch.gemini.model}")
+    private String modelVersion;
 
     public enum JobState { PENDING, FAILED }
     private final java.util.Map<String, JobState> jobStates = new ConcurrentHashMap<>();
@@ -104,7 +108,7 @@ public class AISummaryService {
                     dto.architectureSummary(),
                     dto.keyTechnologies(),
                     dto.learningValue(),
-                    "gemini-1.5-flash",
+                    modelVersion != null ? modelVersion : "gemini-3.5-flash",
                     Instant.now()
             );
 
