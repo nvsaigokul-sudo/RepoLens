@@ -338,6 +338,14 @@ public class GeminiClient {
             String responseBody = callGeminiApi(prompt, effectiveKey, null, temperature);
             return cleanJsonResponse(responseBody);
         } catch (Exception e) {
+            System.err.println("--- DETAILED GEMINI EXCEPTION ---");
+            e.printStackTrace();
+            if (e instanceof org.springframework.web.client.RestClientResponseException ex) {
+                System.err.println("HTTP Status Code: " + ex.getStatusCode());
+                System.err.println("HTTP Response Body: " + ex.getResponseBodyAsString());
+                System.err.println("HTTP Response Headers: " + ex.getResponseHeaders());
+            }
+            System.err.println("---------------------------------");
             log.error("Complete Gemini Exception stack trace: ", e);
 
             int statusCode = 500;

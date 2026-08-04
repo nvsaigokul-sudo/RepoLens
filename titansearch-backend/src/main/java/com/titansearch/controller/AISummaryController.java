@@ -128,9 +128,15 @@ public class AISummaryController {
             );
             return ResponseEntity.ok(ApiEnvelope.ok(Map.of("response", aiResponse)));
         } catch (com.titansearch.service.ai.GeminiClient.GeminiException ex) {
+            System.err.println("--- CONTROLLER GEMINI EXCEPTION ---");
+            ex.printStackTrace();
+            System.err.println("-----------------------------------");
             return ResponseEntity.status(ex.getStatusCode())
                     .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("GEMINI_ERROR", ex.getUserFriendlyMessage())));
         } catch (Exception ex) {
+            System.err.println("--- CONTROLLER GENERAL EXCEPTION ---");
+            ex.printStackTrace();
+            System.err.println("------------------------------------");
             return ResponseEntity.status(500)
                     .body(ApiEnvelope.failed(new ApiEnvelope.ApiError("INTERNAL_ERROR", "An unexpected AI service error occurred. Please try again later.")));
         }
