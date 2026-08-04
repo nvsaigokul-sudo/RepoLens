@@ -110,7 +110,7 @@ Pending backend search queries and repository details fetches are aborted instan
 ### Backend
 * **Spring Boot 3.x** & **Java 21**
 * **Maven** (Dependency manager)
-* **Google Gemini Client** (Integrated with the `gemini-2.5-flash` model)
+* **Google Gemini Client** (Integrated with the `gemini-1.5-flash` model)
 
 ### Desktop Launcher
 * **C# (.NET Framework)** (Compiles native executable wrapper)
